@@ -4,6 +4,7 @@ project(RealSensePCLColorExample)
 
 add_executable (rs-pcl-color rs-pcl-color.cpp)
 set_property(TARGET rs-pcl-color PROPERTY CXX_STANDARD 11)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 find_package(PCL REQUIRED)
 include_directories(${PCL_INCLUDE_DIRS})
 link_directories(${PCL_LIBRARY_DIRS})

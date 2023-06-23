@@ -7,6 +7,12 @@
 #include <pcl/point_types.h>
 #include <pcl/filters/passthrough.h>
 
+#include <pcl/sample_consensus/method_types.h>
+#include <pcl/sample_consensus/model_types.h>
+#include <pcl/segmentation/sac_segmentation.h>
+#include <pcl/ModelCoefficients.h>
+#include <pcl/filters/extract_indices.h>
+
 // Struct for managing rotation of pointcloud view
 struct state {
     state() : yaw(0.0), pitch(0.0), last_x(0.0), last_y(0.0),
@@ -81,9 +87,27 @@ int main(int argc, char * argv[]) try
     pass.setFilterLimits(0.0, 1.0);
     pass.filter(*cloud_filtered);
 
+    pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
+    pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
+
+    pcl::SACSegmentation<pcl::PointXYZ> seg;
+    seg.setOptimizeCoefficients(true);
+    seg.setModelType(pcl::SACMODEL_PLANE);
+    seg.setMethodType(pcl::SAC_RANSAC);
+    seg.setDistanceThreshold(0.1);
+    seg.setInputCloud(cloud_filtered);
+    seg.segment(*inliers, *coefficients);
+    
+    pcl::ExtractIndices<pcl::PointXYZ> extract;
+    pcl_ptr cloud_p(new pcl::PointCloud<pcl::PointXYZ>);
+
+    extract.setInputCloud(cloud_filtered);
+    extract.setIndices(inliers);
+    extract.setNegative(false);
+    extract.filter(*cloud_p);
     std::vector<pcl_ptr> layers;
-    layers.push_back(pcl_points);
-    layers.push_back(cloud_filtered);
+    layers.push_back(pcl_points); // Red
+    layers.push_back(cloud_p); // Green
 
     while (app) // Application still alive?
     {
