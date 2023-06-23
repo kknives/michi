@@ -3,7 +3,6 @@
   inputs = {
     flake-utils.url = "github:numtide/flake-utils";
     nixpkgs.url = "github:NixOS/nixpkgs/86388ba6881aae014fb945ede340083fef0fd637";
-    # nixpkgs.rev = "86388ba6881aae014fb945ede340083fef0fd637";
   };
 
   outputs = { self, nixpkgs, flake-utils}: 
