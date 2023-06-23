@@ -105,7 +105,7 @@ int main(int argc, char * argv[]) try
     seg.setOptimizeCoefficients(true);
     seg.setModelType(pcl::SACMODEL_PLANE);
     seg.setMethodType(pcl::SAC_RANSAC);
-    seg.setDistanceThreshold(0.1);
+    seg.setDistanceThreshold(0.01);
     seg.setInputCloud(cloud_filtered);
     seg.segment(*inliers, *coefficients);
     
