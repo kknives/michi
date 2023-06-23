@@ -65,6 +65,10 @@ int main(int argc, char * argv[]) try
     // We want the points object to be persistent so we can display the last cloud when a frame drops
     rs2::points points;
 
+    rs2::decimation_filter dec_filter;
+    rs2::temporal_filter temp_filter;
+    rs2::hole_filling_filter hole_filter;
+
     // Declare RealSense pipeline, encapsulating the actual device and sensors
     rs2::pipeline pipe;
     // Start streaming with default recommended configuration
@@ -74,6 +78,13 @@ int main(int argc, char * argv[]) try
     auto frames = pipe.wait_for_frames();
 
     auto depth = frames.get_depth_frame();
+    rs2::frame filtered = depth;
+
+    filtered = dec_filter.process(filtered);
+    filtered = temp_filter.process(filtered);
+    filtered = hole_filter.process(filtered);
+
+    depth = filtered;
 
     // Generate the pointcloud and texture mappings
     points = pc.calculate(depth);
