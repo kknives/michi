@@ -32,6 +32,8 @@ set_target_properties (rs-pcl-color PROPERTIES
     FOLDER "Examples/PCL"
 )
 
+add_compile_options(-Wfatal-errors)
+
 foreach(flag_var
         CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
         CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO
