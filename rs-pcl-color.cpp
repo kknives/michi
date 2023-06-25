@@ -69,10 +69,10 @@ int main(int argc, char * argv[]) try
     rs2::temporal_filter temp_filter;
     rs2::hole_filling_filter hole_filter;
 
-    // Declare RealSense pipeline, encapsulating the actual device and sensors
     rs2::pipeline pipe;
-    // Start streaming with default recommended configuration
-    pipe.start();
+    rs2::config stream_config;
+    stream_config.enable_stream(rs2_stream::RS2_STREAM_DEPTH, 0, 424, 240, rs2_format::RS2_FORMAT_Z16, 30);
+    pipe.start(stream_config);
 
     // Wait for the next set of frames from the camera
     auto frames = pipe.wait_for_frames();
