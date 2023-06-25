@@ -15,6 +15,8 @@
 #include <pcl/filters/statistical_outlier_removal.h>
 #include <pcl/filters/voxel_grid.h>
 
+#include <pcl/visualization/cloud_viewer.h>
+
 // Struct for managing rotation of pointcloud view
 struct state {
     state() : yaw(0.0), pitch(0.0), last_x(0.0), last_y(0.0),
@@ -56,11 +58,11 @@ float3 colors[] { { 0.8f, 0.1f, 0.3f },
 int main(int argc, char * argv[]) try
 {
     // Create a simple OpenGL window for rendering:
-    window app(1280, 720, "RealSense PCL Pointcloud Example");
+    // window app(1280, 720, "RealSense PCL Pointcloud Example");
     // Construct an object to manage view state
-    state app_state;
+    // state app_state;
     // register callbacks to allow manipulation of the pointcloud
-    register_glfw_callbacks(app, app_state);
+    // register_glfw_callbacks(app, app_state);
 
     // Declare pointcloud object, for calculating pointclouds and texture mappings
     rs2::pointcloud pc;
@@ -121,16 +123,26 @@ int main(int argc, char * argv[]) try
 
     extract.setInputCloud(cloud_filtered);
     extract.setIndices(inliers);
-    extract.setNegative(false);
+    extract.setNegative(true);
     extract.filter(*cloud_p);
-    std::vector<pcl_ptr> layers;
-    layers.push_back(pcl_points); // Red
-    layers.push_back(cloud_p); // Green
 
-    while (app) // Application still alive?
-    {
-        draw_pointcloud(app, app_state, layers);
-    }
+    // std::vector<pcl_ptr> layers;
+    // layers.push_back(pcl_points); // Red
+    // layers.push_back(cloud_p); // Green
+
+    pcl::visualization::CloudViewer viewer("CloudViewer");
+    viewer.showCloud(pcl_points, "Filtered Cloud");
+    viewer.showCloud(cloud_p, "Ground Plane");
+
+    viewer.runOnVisualizationThreadOnce([](pcl::visualization::PCLVisualizer& viewer) {
+        viewer.addCube(0.0f,1.28f,-1.0f,1.0f,0.0f,3.0f,1.0f,0.0f,0.0f);
+    });
+
+    while(!viewer.wasStopped());
+    // while (app) // Application still alive?
+    // {
+    //     draw_pointcloud(app, app_state, layers);
+    // }
 
     return EXIT_SUCCESS;
 }
