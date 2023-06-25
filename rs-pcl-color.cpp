@@ -12,6 +12,8 @@
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/ModelCoefficients.h>
 #include <pcl/filters/extract_indices.h>
+#include <pcl/filters/statistical_outlier_removal.h>
+#include <pcl/filters/voxel_grid.h>
 
 // Struct for managing rotation of pointcloud view
 struct state {
@@ -98,6 +100,11 @@ int main(int argc, char * argv[]) try
     pass.setFilterLimits(0.0, 1.0);
     pass.filter(*cloud_filtered);
 
+    pcl::VoxelGrid<pcl::PointXYZ> voxel_filter;
+    voxel_filter.setInputCloud(cloud_filtered);
+    voxel_filter.setLeafSize(0.01f,0.01f,0.01f);
+    voxel_filter.filter(*cloud_filtered);
+    
     pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
     pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
 
