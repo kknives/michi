@@ -82,7 +82,7 @@ int main(int argc, char * argv[]) try
 
     filtered = dec_filter.process(filtered);
     filtered = temp_filter.process(filtered);
-    filtered = hole_filter.process(filtered);
+    // filtered = hole_filter.process(filtered);
 
     depth = filtered;
 
@@ -105,7 +105,7 @@ int main(int argc, char * argv[]) try
     seg.setOptimizeCoefficients(true);
     seg.setModelType(pcl::SACMODEL_PLANE);
     seg.setMethodType(pcl::SAC_RANSAC);
-    seg.setDistanceThreshold(0.01);
+    seg.setDistanceThreshold(0.1);
     seg.setInputCloud(cloud_filtered);
     seg.segment(*inliers, *coefficients);
     
