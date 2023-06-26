@@ -32,7 +32,7 @@ set_target_properties (rs-pcl-color PROPERTIES
     FOLDER "Examples/PCL"
 )
 
-add_compile_options(-Wfatal-errors)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wfatal-errors")
 
 foreach(flag_var
         CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
