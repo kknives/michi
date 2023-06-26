@@ -61,13 +61,6 @@ float3 colors[] { { 0.8f, 0.1f, 0.3f },
 
 int main(int argc, char * argv[]) try
 {
-    // Create a simple OpenGL window for rendering:
-    // window app(1280, 720, "RealSense PCL Pointcloud Example");
-    // Construct an object to manage view state
-    // state app_state;
-    // register callbacks to allow manipulation of the pointcloud
-    // register_glfw_callbacks(app, app_state);
-
     // Declare pointcloud object, for calculating pointclouds and texture mappings
     rs2::pointcloud pc;
     // We want the points object to be persistent so we can display the last cloud when a frame drops
@@ -135,9 +128,6 @@ int main(int argc, char * argv[]) try
     extract.setNegative(true);
     extract.filter(*cloud_p);
 
-    // std::vector<pcl_ptr> layers;
-    // layers.push_back(pcl_points); // Red
-    // layers.push_back(cloud_p); // Green
 
     pcl::visualization::CloudViewer viewer("CloudViewer");
     viewer.showCloud(pcl_points, "Filtered Cloud");
@@ -155,10 +145,6 @@ int main(int argc, char * argv[]) try
     });
 
     while(!viewer.wasStopped());
-    // while (app) // Application still alive?
-    // {
-    //     draw_pointcloud(app, app_state, layers);
-    // }
 
     return EXIT_SUCCESS;
 }
