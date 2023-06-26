@@ -6,6 +6,8 @@
 
 #include "example.hpp" // Include short list of convenience functions for rendering
 
+#include <Eigen/Geometry>
+
 #include <pcl/point_types.h>
 #include <pcl/filters/passthrough.h>
 
@@ -141,8 +143,15 @@ int main(int argc, char * argv[]) try
     viewer.showCloud(pcl_points, "Filtered Cloud");
     viewer.showCloud(cloud_p, "Ground Plane");
 
-    viewer.runOnVisualizationThreadOnce([](pcl::visualization::PCLVisualizer& viewer) {
-        viewer.addCube(0.0f,1.28f,-1.0f,1.0f,0.0f,3.0f,1.0f,0.0f,0.0f);
+    viewer.runOnVisualizationThreadOnce([&fov](pcl::visualization::PCLVisualizer& viewer) {
+        Eigen::Affine3f m = Eigen::Affine3f::Identity();
+        std::cout << "Rotation Matrix\n" << m.matrix() << "\n";
+        viewer.removeAllCoordinateSystems();
+        viewer.addCoordinateSystem(1.0f, m);
+        viewer.setCameraPosition(0, 0, 0, 0, 0, 1, 0, -1, 0);
+        viewer.setCameraFieldOfView(1.01256);
+        // Fix this
+        // viewer.addCube(0.0f,1.28f,-1.0f,1.0f,0.0f,3.0f,1.0f,0.0f,0.0f);
     });
 
     while(!viewer.wasStopped());
