@@ -2,6 +2,8 @@
 // Copyright(c) 2015-2017 Intel Corporation. All Rights Reserved.
 
 #include <librealsense2/rs.hpp> // Include RealSense Cross Platform API
+#include <librealsense2/rsutil.h>
+
 #include "example.hpp" // Include short list of convenience functions for rendering
 
 #include <pcl/point_types.h>
@@ -76,7 +78,12 @@ int main(int argc, char * argv[]) try
     rs2::pipeline pipe;
     rs2::config stream_config;
     stream_config.enable_stream(rs2_stream::RS2_STREAM_DEPTH, 0, 424, 240, rs2_format::RS2_FORMAT_Z16, 30);
-    pipe.start(stream_config);
+    rs2::pipeline_profile selection = pipe.start(stream_config);
+    auto depth_stream = selection.get_stream(RS2_STREAM_DEPTH).as<rs2::video_stream_profile>();
+    auto i = depth_stream.get_intrinsics();
+    float fov[2];
+    rs2_fov(&i, fov);
+    std::cout << fov[0] << ", " << fov[1] << "\n";
 
     // Wait for the next set of frames from the camera
     auto frames = pipe.wait_for_frames();
