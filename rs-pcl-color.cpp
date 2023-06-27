@@ -153,10 +153,10 @@ int main(int argc, char * argv[]) try
         viewer.addCoordinateSystem(1.0f, m);
         viewer.setCameraPosition(0, 0, 0, 0, 0, 1, 0, -1, 0);
         viewer.setCameraFieldOfView(1.01256);
-        viewer.addCube(0.0f,  1.0f,
+        viewer.addCube(-0.166152f, 0.0f,
                        0.0f, 1.28f,
-                       0.0f,  3.0f,
-                       1.0f, 0.0f, 0.0f);
+                       0.0f,  4.0f,
+                       1.0f,  0.0f, 0.0f);
         viewer.setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_REPRESENTATION, pcl::visualization::PCL_VISUALIZER_REPRESENTATION_WIREFRAME, "cube");
         viewer.setPointCloudRenderingProperties(pcl::visualization::RenderingProperties::PCL_VISUALIZER_COLOR, 1.0f,0.1f,0.3f, "Ground Plane");
     });
