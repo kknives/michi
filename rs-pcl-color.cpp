@@ -1,6 +1,8 @@
 // License: Apache 2.0. See LICENSE file in root directory.
 // Copyright(c) 2015-2017 Intel Corporation. All Rights Reserved.
 
+#include <algorithm>
+
 #include <librealsense2/rs.hpp> // Include RealSense Cross Platform API
 #include <librealsense2/rsutil.h>
 
@@ -19,6 +21,8 @@
 #include <pcl/filters/statistical_outlier_removal.h>
 #include <pcl/filters/voxel_grid.h>
 
+#include <pcl/search/octree.h>
+
 #include <pcl/visualization/cloud_viewer.h>
 
 // Struct for managing rotation of pointcloud view
@@ -33,6 +37,8 @@ using pcl_ptr = pcl::PointCloud<pcl::PointXYZ>::Ptr;
 // Helper functions
 void register_glfw_callbacks(window& app, state& app_state);
 void draw_pointcloud(window& app, state& app_state, const std::vector<pcl_ptr>& points);
+
+void calculate_obstacle_distances(pcl::octree::OctreePointCloudSearch<pcl::PointXYZ>& t, std::vector<float>& distances, float hfov);
 
 pcl_ptr points_to_pcl(const rs2::points& points)
 {
@@ -128,6 +134,14 @@ int main(int argc, char * argv[]) try
     extract.setNegative(false);
     extract.filter(*cloud_p);
 
+    pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> octree(120.0f);
+    octree.setInputCloud(cloud_p);
+    octree.addPointsFromInputCloud();
+    // pcl::PointIndices::Ptr region (new pcl::pointIndices);
+
+    std::vector<float> distances(36);
+    calculate_obstacle_distances(octree, distances, 1.5534f);
+    // octree.boxSearch
 
     pcl::visualization::CloudViewer viewer("CloudViewer");
     viewer.showCloud(pcl_points, "Filtered Cloud");
@@ -162,6 +176,18 @@ catch (const std::exception & e)
     return EXIT_FAILURE;
 }
 
+void calculate_obstacle_distances(pcl::octree::OctreePointCloudSearch<pcl::PointXYZ>& t, std::vector<float>& distances, float hfov)
+{
+    float alpha = hfov / 72.0f;
+    float h = 4.0f;
+    float x = h*std::tan(hfov/2.0f);
+    std::iota(begin(distances), end(distances), 1);
+    std::transform(begin(distances), end(distances), begin(distances), [alpha](float a) { return a*alpha; });
+    std::transform(begin(distances), end(distances), begin(distances), [x, hfov, h](float a) { return x - (h*std::tan((hfov/2.0)-a));
+    });
+    std::copy(begin(distances), end(distances), std::ostream_iterator<float>(std::cout, " "));
+    std::cout << "\n";
+}
 // Registers the state variable and callbacks to allow mouse control of the pointcloud
 void register_glfw_callbacks(window& app, state& app_state)
 {
