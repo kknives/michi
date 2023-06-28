@@ -10,6 +10,7 @@
 
 #include <Eigen/Geometry>
 
+#include <pcl/common/angles.h>
 #include <pcl/point_types.h>
 #include <pcl/filters/passthrough.h>
 
@@ -22,8 +23,11 @@
 #include <pcl/filters/voxel_grid.h>
 
 #include <pcl/search/octree.h>
+#include <pcl/range_image/range_image.h>
 
 #include <pcl/visualization/cloud_viewer.h>
+#include <pcl/visualization/pcl_visualizer.h>
+#include <pcl/visualization/range_image_visualizer.h>
 
 // Struct for managing rotation of pointcloud view
 struct state {
@@ -39,6 +43,16 @@ void register_glfw_callbacks(window& app, state& app_state);
 void draw_pointcloud(window& app, state& app_state, const std::vector<pcl_ptr>& points);
 
 void calculate_obstacle_distances(pcl::octree::OctreePointCloudSearch<pcl::PointXYZ>& t, std::vector<float>& distances, float hfov);
+void 
+setViewerPose (pcl::visualization::PCLVisualizer& viewer, const Eigen::Affine3f& viewer_pose)
+{
+Eigen::Vector3f pos_vector = viewer_pose * Eigen::Vector3f(0, 0, 0);
+Eigen::Vector3f look_at_vector = viewer_pose.rotation () * Eigen::Vector3f(0, 0, 1) + pos_vector;
+Eigen::Vector3f up_vector = viewer_pose.rotation () * Eigen::Vector3f(0, -1, 0);
+viewer.setCameraPosition (pos_vector[0], pos_vector[1], pos_vector[2],
+                         look_at_vector[0], look_at_vector[1], look_at_vector[2],
+                         up_vector[0], up_vector[1], up_vector[2]);
+}
 
 pcl_ptr points_to_pcl(const rs2::points& points)
 {
@@ -84,6 +98,8 @@ int main(int argc, char * argv[]) try
     auto i = depth_stream.get_intrinsics();
     float fov[2];
     rs2_fov(&i, fov);
+    fov[0] = (fov[0] * M_PI)/180.0f;
+    fov[1] = (fov[1] * M_PI)/180.0f;
     std::cout << fov[0] << ", " << fov[1] << "\n";
 
     // Wait for the next set of frames from the camera
@@ -134,34 +150,48 @@ int main(int argc, char * argv[]) try
     extract.setNegative(false);
     extract.filter(*cloud_p);
 
-    pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> octree(120.0f);
-    octree.setInputCloud(cloud_p);
-    octree.addPointsFromInputCloud();
-    // pcl::PointIndices::Ptr region (new pcl::pointIndices);
+    Eigen::Affine3f rs_pose = (Eigen::Affine3f) Eigen::Translation3f(0.0f, 0.0f, 0.0f);
+    float angular_res = (float) (1.0f * (M_PI/180.0f));
+    pcl::RangeImage::CoordinateFrame coord_frame = pcl::RangeImage::CAMERA_FRAME;
+    float noise_lvl = 0.0f;
+    float min_range = 0.0f;
+    int border = 0;
+    pcl::RangeImage::Ptr range_image_ptr(new pcl::RangeImage);
+    pcl::RangeImage& rg_img = *range_image_ptr;
+    rg_img.createFromPointCloud(*pcl_points, angular_res, pcl::deg2rad(360.0f), pcl::deg2rad(180.0f), rs_pose, coord_frame, noise_lvl, min_range, border);
+    std::cout << rg_img << "\n";
+
 
     std::vector<float> distances(36);
-    calculate_obstacle_distances(octree, distances, 1.5534f);
     // octree.boxSearch
 
-    pcl::visualization::CloudViewer viewer("CloudViewer");
-    viewer.showCloud(pcl_points, "Filtered Cloud");
-    viewer.showCloud(cloud_p, "Ground Plane");
 
-    viewer.runOnVisualizationThreadOnce([&fov](pcl::visualization::PCLVisualizer& viewer) {
-        Eigen::Affine3f m = Eigen::Affine3f::Identity();
-        viewer.removeAllCoordinateSystems();
-        viewer.addCoordinateSystem(1.0f, m);
-        viewer.setCameraPosition(0, 0, 0, 0, 0, 1, 0, -1, 0);
-        viewer.setCameraFieldOfView(1.01256);
-        viewer.addCube(-0.166152f, 0.0f,
-                       0.0f, 1.28f,
-                       0.0f,  4.0f,
-                       1.0f,  0.0f, 0.0f);
-        viewer.setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_REPRESENTATION, pcl::visualization::PCL_VISUALIZER_REPRESENTATION_WIREFRAME, "cube");
-        viewer.setPointCloudRenderingProperties(pcl::visualization::RenderingProperties::PCL_VISUALIZER_COLOR, 1.0f,0.1f,0.3f, "Ground Plane");
-    });
+    pcl::visualization::RangeImageVisualizer range_image_widget ("Range image");
+    range_image_widget.showRangeImage(rg_img);
 
-    while(!viewer.wasStopped());
+    // pcl::visualization::CloudViewer viewer("CloudViewer");
+    // viewer.showCloud(pcl_points, "Filtered Cloud");
+    // viewer.showCloud(cloud_p, "Ground Plane");
+
+    // viewer.runOnVisualizationThreadOnce([&fov](pcl::visualization::PCLVisualizer& viewer) {
+    //     Eigen::Affine3f m = Eigen::Affine3f::Identity();
+    //     viewer.removeAllCoordinateSystems();
+    //     viewer.addCoordinateSystem(1.0f, m);
+    //     viewer.setCameraPosition(0, 0, 0, 0, 0, 1, 0, -1, 0);
+    //     viewer.setCameraFieldOfView(1.01256);
+    //     viewer.addCube(-0.166152f, 0.0f,
+    //                    0.0f, 1.28f,
+    //                    0.0f,  4.0f,
+    //                    1.0f,  0.0f, 0.0f);
+    //     viewer.setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_REPRESENTATION, pcl::visualization::PCL_VISUALIZER_REPRESENTATION_WIREFRAME, "cube");
+    //     viewer.setPointCloudRenderingProperties(pcl::visualization::RenderingProperties::PCL_VISUALIZER_COLOR, 1.0f,0.1f,0.3f, "Ground Plane");
+    // });
+
+while (!range_image_widget.wasStopped ())
+{
+  range_image_widget.spinOnce ();
+  // viewer.spinOnce ();
+        }
 
     return EXIT_SUCCESS;
 }
