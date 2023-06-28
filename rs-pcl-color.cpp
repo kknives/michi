@@ -26,8 +26,6 @@
 #include <pcl/range_image/range_image.h>
 
 #include <pcl/visualization/cloud_viewer.h>
-#include <pcl/visualization/pcl_visualizer.h>
-#include <pcl/visualization/range_image_visualizer.h>
 
 // Struct for managing rotation of pointcloud view
 struct state {
@@ -150,48 +148,34 @@ int main(int argc, char * argv[]) try
     extract.setNegative(false);
     extract.filter(*cloud_p);
 
-    Eigen::Affine3f rs_pose = (Eigen::Affine3f) Eigen::Translation3f(0.0f, 0.0f, 0.0f);
-    float angular_res = (float) (1.0f * (M_PI/180.0f));
-    pcl::RangeImage::CoordinateFrame coord_frame = pcl::RangeImage::CAMERA_FRAME;
-    float noise_lvl = 0.0f;
-    float min_range = 0.0f;
-    int border = 0;
-    pcl::RangeImage::Ptr range_image_ptr(new pcl::RangeImage);
-    pcl::RangeImage& rg_img = *range_image_ptr;
-    rg_img.createFromPointCloud(*pcl_points, angular_res, pcl::deg2rad(360.0f), pcl::deg2rad(180.0f), rs_pose, coord_frame, noise_lvl, min_range, border);
-    std::cout << rg_img << "\n";
+    pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> octree(120.0f);
+    octree.setInputCloud(cloud_p);
+    octree.addPointsFromInputCloud();
+    // pcl::PointIndices::Ptr region (new pcl::pointIndices);
 
-
-    std::vector<float> distances(36);
+    std::vector<float> distances(72);
+    calculate_obstacle_distances(pcl_points, distances, fov);
     // octree.boxSearch
 
+    pcl::visualization::CloudViewer viewer("CloudViewer");
+    viewer.showCloud(pcl_points, "Filtered Cloud");
+    viewer.showCloud(cloud_p, "Ground Plane");
 
-    pcl::visualization::RangeImageVisualizer range_image_widget ("Range image");
-    range_image_widget.showRangeImage(rg_img);
+    viewer.runOnVisualizationThreadOnce([&fov](pcl::visualization::PCLVisualizer& viewer) {
+        Eigen::Affine3f m = Eigen::Affine3f::Identity();
+        viewer.removeAllCoordinateSystems();
+        viewer.addCoordinateSystem(1.0f, m);
+        viewer.setCameraPosition(0, 0, 0, 0, 0, 1, 0, -1, 0);
+        viewer.setCameraFieldOfView(1.01256);
+        viewer.addCube(-0.166152f, 0.0f,
+                       0.0f, 1.28f,
+                       0.0f,  4.0f,
+                       1.0f,  0.0f, 0.0f);
+        viewer.setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_REPRESENTATION, pcl::visualization::PCL_VISUALIZER_REPRESENTATION_WIREFRAME, "cube");
+        viewer.setPointCloudRenderingProperties(pcl::visualization::RenderingProperties::PCL_VISUALIZER_COLOR, 1.0f,0.1f,0.3f, "Ground Plane");
+    });
 
-    // pcl::visualization::CloudViewer viewer("CloudViewer");
-    // viewer.showCloud(pcl_points, "Filtered Cloud");
-    // viewer.showCloud(cloud_p, "Ground Plane");
-
-    // viewer.runOnVisualizationThreadOnce([&fov](pcl::visualization::PCLVisualizer& viewer) {
-    //     Eigen::Affine3f m = Eigen::Affine3f::Identity();
-    //     viewer.removeAllCoordinateSystems();
-    //     viewer.addCoordinateSystem(1.0f, m);
-    //     viewer.setCameraPosition(0, 0, 0, 0, 0, 1, 0, -1, 0);
-    //     viewer.setCameraFieldOfView(1.01256);
-    //     viewer.addCube(-0.166152f, 0.0f,
-    //                    0.0f, 1.28f,
-    //                    0.0f,  4.0f,
-    //                    1.0f,  0.0f, 0.0f);
-    //     viewer.setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_REPRESENTATION, pcl::visualization::PCL_VISUALIZER_REPRESENTATION_WIREFRAME, "cube");
-    //     viewer.setPointCloudRenderingProperties(pcl::visualization::RenderingProperties::PCL_VISUALIZER_COLOR, 1.0f,0.1f,0.3f, "Ground Plane");
-    // });
-
-while (!range_image_widget.wasStopped ())
-{
-  range_image_widget.spinOnce ();
-  // viewer.spinOnce ();
-        }
+    while(!viewer.wasStopped());
 
     return EXIT_SUCCESS;
 }
