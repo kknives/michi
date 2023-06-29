@@ -208,6 +208,10 @@ void calculate_obstacle_distances(pcl_ptr pc, std::vector<float>& distances, flo
     // std::transform(begin(distances), end(distances), begin(distances), [alpha](float a) { return a*alpha; });
     // std::transform(begin(distances), end(distances), begin(distances), [x, hfov, h](float a) { return x - (h*std::tan((hfov/2.0)-a));
     // });
+    if (false) {
+        printf("%f", goods[1]);
+        for (int i = 1; i < rg_img.width * rg_img.height; i++) printf(" %f", *(goods+i));
+    }
     std::copy(begin(distances), end(distances), std::ostream_iterator<float>(std::cout, " "));
     std::cout << "\n";
 }
