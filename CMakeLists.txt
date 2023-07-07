@@ -2,11 +2,14 @@ cmake_minimum_required(VERSION 3.1.0)
 
 project(RealSensePCLColorExample)
 
+set(CMAKE_CXX_STANDARD 20)
+
 add_executable (rs-pcl-color rs-pcl-color.cpp)
 set_property(TARGET rs-pcl-color PROPERTY CXX_STANDARD 11)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 find_package(PCL REQUIRED)
 include_directories(${PCL_INCLUDE_DIRS})
+include_directories(lib)
 link_directories(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
 target_link_libraries(rs-pcl-color ${DEPENDENCIES} ${PCL_LIBRARIES})
@@ -31,6 +34,12 @@ target_link_libraries(rs-pcl-color ${OPENGL_LIBRARIES})
 set_target_properties (rs-pcl-color PROPERTIES
     FOLDER "Examples/PCL"
 )
+
+pkg_search_module(GTEST 1.12 REQUIRED gtest_main)
+add_executable(test_realsense_generator tests/test_realsense_generator.cpp lib/realsense_generator.hpp)
+target_link_libraries(test_realsense_generator ${DEPENDENCIES} ${realsense2_LIBRARY})
+target_link_libraries(test_realsense_generator ${GTEST_LDFLAGS})
+target_compile_options(test_realsense_generator PRIVATE ${GTEST_CFLAGS})
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wfatal-errors")
 
