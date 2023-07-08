@@ -25,6 +25,8 @@
         opencv
         glfw
         libGLU.dev
+        gtest.dev
+        glog
       ];
       configurePhase = ''
       cmake -S . -B build
