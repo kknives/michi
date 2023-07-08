@@ -17,7 +17,7 @@
     packages.michi = with pkgs; stdenv.mkDerivation {
       name = "michi";
       src = self;
-      nativeBuildInputs = [ cmake gcc pkgconfig ];
+      nativeBuildInputs = [ cmake gcc13 pkgconfig ];
       buildInputs = [
         packages.librealsense.dev
         pcl
