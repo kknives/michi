@@ -53,11 +53,29 @@ foreach(flag_var
     endif(${flag_var} MATCHES "/MT")
 endforeach(flag_var)
 
+# set_target_properties (rs-pcl-color PROPERTIES
+#     FOLDER "Examples/PCL"
+# )
+
+# find_package(GTest 1.12 REQUIRED)
+Include(FetchContent)
+
+FetchContent_Declare(
+  Catch2
+  GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+  GIT_TAG        v3.0.1 # or a later release
+)
+
+FetchContent_MakeAvailable(Catch2)
+# pkg_search_module(GTEST 1.12 REQUIRED gtest_main)
+add_executable(test_realsense_generator tests/test_realsense_generator.cpp)
+add_dependencies(test_realsense_generator Michi)
+# target_link_libraries(test_realsense_generator ${DEPENDENCIES} ${realsense2_LIBRARY})
+target_link_libraries(test_realsense_generator PRIVATE Catch2::Catch2WithMain Michi)
+# target_compile_options(test_realsense_generator PRIVATE ${GTEST_CFLAGS})
+
 install(
     TARGETS
-
-    rs-pcl-color
-
     RUNTIME DESTINATION
     ${CMAKE_INSTALL_PREFIX}/bin
 )
