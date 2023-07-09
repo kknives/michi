@@ -1,6 +1,9 @@
-#include "__generator.hpp"
+#include "cppcoro/async_generator.hpp"
 #include "expected.hpp"
 // #include <format>
+#include <librealsense2/hpp/rs_frame.hpp>
+#include <librealsense2/hpp/rs_pipeline.hpp>
+#include <librealsense2/hpp/rs_processing.hpp>
 #include <utility>
 #include <ranges>
 #include <system_error>
@@ -31,4 +34,34 @@ auto setup_device() -> tResult<std::tuple<rs2::pipeline, float, float>> {
   fov[0] = (fov[0] * M_PI)/180.0f;
   fov[1] = (fov[1] * M_PI)/180.0f;
   return std::tie(pipe, fov[0], fov[1]);
+}
+
+struct PipelineReady {
+  public:
+  PipelineReady(rs2::pipeline pipe, rs2::frameset& frames) : pipe{pipe}, frames{frames} {}
+  bool await_ready() {
+    return pipe.poll_for_frames(&frames);
+  }
+  bool await_suspend() {
+    return pipe.poll_for_frames(&frames);
+  }
+  void await_resume() {}
+  rs2::pipeline pipe;
+  rs2::frameset frames;
+};
+
+auto next_cloud_and_image(rs2::pipeline pipe) -> async_generator<std::tuple<rs2::points, rs2::frame>> {
+  rs2::frameset frames;
+  while (true) {
+    co_await PipelineReady{pipe, &frames};
+    rs2::frame depth = frames.get_depth_frame();
+
+    rs2::decimation_filter dec_filter;
+    rs2::temporal_filter temp_filter;
+    depth = dec_filer.process(depth);
+    depth = temp_filter.process(temp);
+
+    rs2::pointcloud pc;
+    co_yield std::tie(pc.calculate(depth), depth);
+  }
 }
