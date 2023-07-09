@@ -49,7 +49,7 @@ struct PipelineReady {
   bool await_ready() {
     return pipe.poll_for_frames(&frames);
   }
-  bool await_suspend() {
+  bool await_suspend(std::experimental::coroutine_handle<> co_handle) {
     return pipe.poll_for_frames(&frames);
   }
   void await_resume() {}
@@ -57,18 +57,19 @@ struct PipelineReady {
   rs2::frameset frames;
 };
 
-auto next_cloud_and_image(rs2::pipeline pipe) -> async_generator<std::tuple<rs2::points, rs2::frame>> {
+auto next_cloud_and_image(rs2::pipeline pipe) -> cppcoro::async_generator<std::tuple<rs2::points, rs2::frame>> {
   rs2::frameset frames;
   while (true) {
-    co_await PipelineReady{pipe, &frames};
+    co_await PipelineReady{pipe, frames};
     rs2::frame depth = frames.get_depth_frame();
 
     rs2::decimation_filter dec_filter;
     rs2::temporal_filter temp_filter;
-    depth = dec_filer.process(depth);
-    depth = temp_filter.process(temp);
+    depth = dec_filter.process(depth);
+    depth = temp_filter.process(depth);
 
     rs2::pointcloud pc;
-    co_yield std::tie(pc.calculate(depth), depth);
+    rs2::points points = pc.calculate(depth);
+    co_yield std::tie(points, depth);
   }
 }
