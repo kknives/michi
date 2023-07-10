@@ -25,7 +25,6 @@
         opencv
         glfw
         libGLU.dev
-        gtest.dev
         glog
       ];
       configurePhase = ''
