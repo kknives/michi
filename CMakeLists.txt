@@ -1,63 +1,42 @@
 cmake_minimum_required(VERSION 3.1.0)
 
-project(RealSensePCLColorExample)
+project(Michi VERSION 0.1 LANGUAGES CXX)
 
+set(default_build_type Debug)
+set(EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 20)
-
-add_executable (rs-pcl-color rs-pcl-color.cpp)
-set_property(TARGET rs-pcl-color PROPERTY CXX_STANDARD 11)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-find_package(PCL REQUIRED)
-include_directories(${PCL_INCLUDE_DIRS})
-include_directories(lib)
-link_directories(${PCL_LIBRARY_DIRS})
-add_definitions(${PCL_DEFINITIONS})
-target_link_libraries(rs-pcl-color ${DEPENDENCIES} ${PCL_LIBRARIES})
-if(NOT glfw3_DIR)
-    target_include_directories(rs-pcl-color PUBLIC "${CMAKE_SOURCE_DIR}third-party/glfw/include")
-    target_link_directories(rs-pcl-color PUBLIC "${CMAKE_BINARY_DIR}/third-party/glfw/src/${CMAKE_BUILD_TYPE}")
-endif()
-
-find_package(OpenCV REQUIRED)
-target_link_libraries(rs-pcl-color ${DEPENDENCIES} ${OpenCV_LIBS})
-
-find_package(realsense2 REQUIRED)
-include_directories(include ${realsense_INCLUDE_DIR})
-target_link_libraries(rs-pcl-color ${DEPENDENCIES} ${realsense2_LIBRARY})
-
-find_package(glfw3 3.2 REQUIRED)
-target_link_libraries(rs-pcl-color glfw)
-
-find_package(OpenGL)
-target_link_libraries(rs-pcl-color ${OPENGL_LIBRARIES})
-
-set_target_properties (rs-pcl-color PROPERTIES
-    FOLDER "Examples/PCL"
-)
-
-pkg_search_module(GTEST 1.12 REQUIRED gtest_main)
-add_executable(test_realsense_generator tests/test_realsense_generator.cpp lib/realsense_generator.hpp)
-target_link_libraries(test_realsense_generator ${DEPENDENCIES} ${realsense2_LIBRARY})
-target_link_libraries(test_realsense_generator ${GTEST_LDFLAGS})
-target_compile_options(test_realsense_generator PRIVATE ${GTEST_CFLAGS})
-
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wfatal-errors")
 
-foreach(flag_var
-        CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
-        CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO
-        CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE
-        CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO)
-    if(${flag_var} MATCHES "/MT")
-        string(REGEX REPLACE "/MT" "/MD" ${flag_var} "${${flag_var}}")
-    endif(${flag_var} MATCHES "/MT")
-endforeach(flag_var)
+find_package(PCL REQUIRED)
+find_package(OpenCV REQUIRED)
+find_package(realsense2 REQUIRED)
+find_package(Eigen3 3.3 REQUIRED)
 
-# set_target_properties (rs-pcl-color PROPERTIES
-#     FOLDER "Examples/PCL"
-# )
+add_library(Michi lib/realsense_generator.cpp)
+target_compile_options(Michi PUBLIC -fcoroutines)
+target_include_directories(Michi PUBLIC lib ${realsense_INCLUDE_DIR}
+    PRIVATE ${PCL_INCLUDE_DIRS})
+target_link_libraries(Michi PRIVATE ${PCL_LIBRARIES} ${OpenCV_LIBS} 
+    PUBLIC ${realsense2_LIBRARY} Eigen3::Eigen)
 
-# find_package(GTest 1.12 REQUIRED)
+option(BUILD_RS_PCL_SCRIPT "Build rs-pcl-color.cpp script for prototyping" OFF)
+if (BUILD_RS_PCL_SCRIPT)
+    find_package(glfw3 3.2 REQUIRED)
+    find_package(OpenGL REQUIRED)
+    add_executable (rs-pcl-color rs-pcl-color.cpp)
+    message("rs-pcl-color requires C++11, it does not compile with C++20")
+    set_property(TARGET rs-pcl-color PROPERTY CXX_STANDARD 11)
+    target_include_directories(rs-pcl-color PUBLIC ${realsense_INCLUDE_DIR}
+        PRIVATE ${PCL_INCLUDE_DIRS})
+    include(CMakePrintHelpers)
+    link_directories(${PCL_LIBRARY_DIRS})
+    cmake_print_variables("${PCL_LIBRARY_DIRS}")
+    target_link_directories(rs-pcl-color PRIVATE ${PCL_LIBRARY_DIRS})
+    target_compile_definitions(rs-pcl-color PRIVATE ${PCL_DEFINITIONS})
+    target_link_libraries(rs-pcl-color ${PCL_LIBRARIES} ${OpenCV_LIBS} 
+        ${realsense2_LIBRARY} Eigen3::Eigen glfw ${OPENGL_LIBRARIES})
+endif()
+
 include(FetchContent)
 FetchContent_Declare(
   googletest
