@@ -44,15 +44,13 @@ auto setup_device() -> tResult<std::tuple<rs2::pipeline, float, float>> {
 
 struct PipelineReady {
   public:
-  PipelineReady(rs2::pipeline pipe, rs2::frameset& frames) : pipe{pipe}, frames{frames} {}
+  PipelineReady(rs2::pipeline& pipe, rs2::frameset& frames) : pipe{pipe}, frames{frames} {}
   bool await_ready() {
     return pipe.poll_for_frames(&frames);
   }
-  bool await_suspend(std::experimental::coroutine_handle<> co_handle) {
-    return pipe.poll_for_frames(&frames);
-  }
+  void await_suspend(std::coroutine_handle<>) {}
   void await_resume() {}
-  rs2::pipeline pipe;
+  rs2::pipeline &pipe;
   rs2::frameset frames;
 };
 
