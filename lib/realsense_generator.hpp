@@ -1,6 +1,5 @@
-#include "cppcoro/async_generator.hpp"
 #include "expected.hpp"
-#include <experimental/coroutine>
+#include <coroutine>
 #include <iostream>
 // #include <format>
 #include <librealsense2/hpp/rs_frame.hpp>
@@ -57,19 +56,19 @@ struct PipelineReady {
   rs2::frameset frames;
 };
 
-auto next_cloud_and_image(rs2::pipeline pipe) -> cppcoro::async_generator<std::tuple<rs2::points, rs2::frame>> {
-  rs2::frameset frames;
-  while (true) {
-    co_await PipelineReady{pipe, frames};
-    rs2::frame depth = frames.get_depth_frame();
+// auto next_cloud_and_image(rs2::pipeline pipe) -> cppcoro::async_generator<std::tuple<rs2::points, rs2::frame>> {
+//   rs2::frameset frames;
+//   while (true) {
+//     co_await PipelineReady{pipe, frames};
+//     rs2::frame depth = frames.get_depth_frame();
 
-    rs2::decimation_filter dec_filter;
-    rs2::temporal_filter temp_filter;
-    depth = dec_filter.process(depth);
-    depth = temp_filter.process(depth);
+//     rs2::decimation_filter dec_filter;
+//     rs2::temporal_filter temp_filter;
+//     depth = dec_filter.process(depth);
+//     depth = temp_filter.process(depth);
 
-    rs2::pointcloud pc;
-    rs2::points points = pc.calculate(depth);
-    co_yield std::tie(points, depth);
-  }
-}
+//     rs2::pointcloud pc;
+//     rs2::points points = pc.calculate(depth);
+//     co_yield std::tie(points, depth);
+//   }
+// }
