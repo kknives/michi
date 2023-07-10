@@ -25,7 +25,7 @@
         opencv
         glfw
         libGLU.dev
-        glog
+        spdlog.dev
       ];
       configurePhase = ''
       cmake -S . -B build
