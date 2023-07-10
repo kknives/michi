@@ -2,6 +2,10 @@ cmake_minimum_required(VERSION 3.1.0)
 
 project(Michi VERSION 0.1 LANGUAGES CXX)
 
+if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR})
+message(FATAL_ERROR “In-source build detected!”)
+endif()
+
 set(default_build_type Debug)
 set(EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 20)
