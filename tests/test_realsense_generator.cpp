@@ -1,12 +1,18 @@
 #include <gtest/gtest.h>
 #include "realsense_generator.hpp"
+#include <librealsense2/hpp/rs_pipeline.hpp>
 #include <system_error>
 
+using tDone = std::tuple<>;
+
 TEST(RealsenseGeneratorTest, ReturnsFov) {
-  auto [pipe, fovh, fovv] = setup_device().or_else([] (std::error_code e){ FAIL() << e.message(); }).value();
-  EXPECT_NE(fovh, 0.0f);
-  EXPECT_NE(fovv, 0.0f);
-  pipe.stop();
+  setup_device().map([] (std::tuple<rs2::pipeline, float, float> v) {
+    auto [pipe, fovh, fovv] = v;
+    EXPECT_NE(fovh, 0.0f);
+    EXPECT_NE(fovv, 0.0f);
+    pipe.stop();
+    return tDone();
+  }).or_else([] (std::error_code e){ FAIL() << e.message(); });
 }
 
 // TEST(RealsenseGeneratorTest, ReturnNonTrivialPoints) {
