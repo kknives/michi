@@ -15,13 +15,14 @@ find_package(PCL REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(realsense2 REQUIRED)
 find_package(Eigen3 3.3 REQUIRED)
+find_package(spdlog REQUIRED)
 
 add_library(Michi lib/realsense_generator.cpp)
 target_compile_options(Michi PUBLIC -fcoroutines)
 target_include_directories(Michi PUBLIC lib ${realsense_INCLUDE_DIR}
     PRIVATE ${PCL_INCLUDE_DIRS})
 target_link_libraries(Michi PRIVATE ${PCL_LIBRARIES} ${OpenCV_LIBS} 
-    PUBLIC ${realsense2_LIBRARY} Eigen3::Eigen)
+    PUBLIC ${realsense2_LIBRARY} Eigen3::Eigen spdlog::spdlog)
 
 option(BUILD_RS_PCL_SCRIPT "Build rs-pcl-color.cpp script for prototyping" OFF)
 if (BUILD_RS_PCL_SCRIPT)
