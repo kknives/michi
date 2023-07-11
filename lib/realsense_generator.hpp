@@ -1,7 +1,9 @@
+#pragma once
+
 #include "expected.hpp"
 #include <spdlog/spdlog.h>
 #include <coroutine>
-#include <iostream>
+#include <optional>
 #include <librealsense2/hpp/rs_frame.hpp>
 #include <librealsense2/hpp/rs_pipeline.hpp>
 #include <librealsense2/hpp/rs_processing.hpp>
@@ -14,6 +16,8 @@
 #include <librealsense2/rsutil.h>
 
 #include <Eigen/Geometry>
+
+#include <asio.hpp>
 
 template <typename T>
 using tResult = tl::expected<T, std::error_code>;
@@ -81,6 +85,34 @@ struct PipelineReady {
   void await_resume() {}
   rs2::pipeline &pipe;
   rs2::frameset frames;
+};
+
+class RealsenseDevice {
+  public:
+  auto async_get_rgb_frame() -> void;
+  auto async_get_points(rs2::points& p) -> asio::awaitable<void>{
+    if (not points.has_value()) co_await async_update();
+    p = std::move(points.value());
+    points.reset();
+  }
+  private:
+  auto async_update() -> asio::awaitable<void>{
+    co_await PipelineReady{pipe, frames};
+
+    rs2::frame depth = frames.get_depth_frame();
+    rs2::decimation_filter dec_filter;
+    rs2::temporal_filter temp_filter;
+    depth = dec_filter.process(depth);
+    depth = temp_filter.process(depth);
+
+    rs2::pointcloud pc;
+    points.emplace(pc.calculate(depth));
+  }
+  
+  rs2::pipeline pipe;
+  rs2::frameset frames;
+  std::optional<rs2::frame> rgb_frame;
+  std::optional<rs2::points> points;
 };
 
 // auto next_cloud_and_image(rs2::pipeline pipe) -> cppcoro::async_generator<std::tuple<rs2::points, rs2::frame>> {
