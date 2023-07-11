@@ -1,7 +1,7 @@
 #include "expected.hpp"
+#include <spdlog/spdlog.h>
 #include <coroutine>
 #include <iostream>
-// #include <format>
 #include <librealsense2/hpp/rs_frame.hpp>
 #include <librealsense2/hpp/rs_pipeline.hpp>
 #include <librealsense2/hpp/rs_processing.hpp>
@@ -66,7 +66,7 @@ auto setup_device() noexcept -> tResult<std::tuple<rs2::pipeline, float, float>>
     return std::tie(pipe, fov[0], fov[1]);
   }
   catch (const std::exception& e) {
-    std::cerr << "GOT: " << e.what() << "\n";
+    spdlog::error("Exception in setup_device(): {}", e.what());
     return make_unexpected(DeviceErrc::LibrsError);
   }
 }
