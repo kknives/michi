@@ -28,7 +28,7 @@ option(BUILD_RS_PCL_SCRIPT "Build rs-pcl-color.cpp script for prototyping" OFF)
 if (BUILD_RS_PCL_SCRIPT)
     find_package(glfw3 3.2 REQUIRED)
     find_package(OpenGL REQUIRED)
-    add_executable (rs-pcl-color rs-pcl-color.cpp)
+    add_executable (rs-pcl-color bin/rs-pcl-color.cpp)
     message("rs-pcl-color requires C++11, it does not compile with C++20")
     set_property(TARGET rs-pcl-color PROPERTY CXX_STANDARD 11)
     target_include_directories(rs-pcl-color PUBLIC ${realsense_INCLUDE_DIR}
