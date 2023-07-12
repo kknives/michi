@@ -68,6 +68,7 @@ auto setup_device() noexcept -> tResult<std::tuple<rs2::pipeline, float, float>>
     auto devices = ctx.query_devices();
     if (devices.size() == 0) return make_unexpected(DeviceErrc::NoDeviceConnected);
     stream_config.enable_stream(rs2_stream::RS2_STREAM_DEPTH, 0, 424, 240, rs2_format::RS2_FORMAT_Z16, 30);
+    stream_config.enable_stream(rs2_stream::RS2_STREAM_COLOR); // Choose resolution here
     rs2::pipeline_profile selection = pipe.start(stream_config);
     auto depth_stream = selection.get_stream(RS2_STREAM_DEPTH).as<rs2::video_stream_profile>();
     auto i = depth_stream.get_intrinsics();
@@ -98,11 +99,17 @@ class RealsenseDevice {
 
     rs2::pointcloud pc;
     points.emplace(pc.calculate(depth));
+
+    rs2::frame color = frames.first(RS2_STREAM_COLOR);
+    rgb_frame.emplace(color);
   }
   
   public:
   RealsenseDevice(rs2::pipeline& pipe) : pipe{pipe} {}
-  auto async_get_rgb_frame() -> void;
+  auto async_get_rgb_frame(asio::io_context& io_ctx) -> asio::awaitable<rs2::frame> {
+    if (not rgb_frame.has_value()) co_await async_update(io_ctx);
+    co_return *std::exchange(rgb_frame, std::nullopt);
+  }
   auto async_get_points(asio::io_context& io_ctx) -> asio::awaitable<rs2::points>{
     if (not points.has_value()) co_await async_update(io_ctx);
     std::optional<rs2::points> replace_with_nullopt = std::nullopt;
