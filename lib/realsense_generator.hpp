@@ -91,13 +91,10 @@ class RealsenseDevice {
     }
 
     rs2::frame depth = frames.first(RS2_STREAM_DEPTH);
-    depth.get_data();
-    rs2::decimation_filter dec_filter;
-    rs2::temporal_filter temp_filter;
+    // Decimation > Spatial > Temporal > Threshold
     depth = dec_filter.process(depth);
     depth = temp_filter.process(depth);
 
-    rs2::pointcloud pc;
     points.emplace(pc.calculate(depth));
 
     rs2::frame color = frames.first(RS2_STREAM_COLOR);
@@ -119,4 +116,8 @@ class RealsenseDevice {
   rs2::frameset frames;
   std::optional<rs2::frame> rgb_frame;
   std::optional<rs2::points> points;
+
+  rs2::decimation_filter dec_filter;
+  rs2::temporal_filter temp_filter;
+  rs2::pointcloud pc;
 };
