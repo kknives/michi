@@ -45,7 +45,7 @@ endif()
 pkg_search_module(GTEST 1.12 REQUIRED gtest_main)
 add_executable(test_realsense_generator tests/test_realsense_generator.cpp)
 add_dependencies(test_realsense_generator Michi)
-target_link_libraries(test_realsense_generator PRIVATE Michi ${GTEST_LDFLAGS})
+target_link_libraries(test_realsense_generator PRIVATE Michi ${GTEST_LDFLAGS} -fsanitize=address)
 
 install(
     TARGETS
