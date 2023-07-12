@@ -82,18 +82,6 @@ auto setup_device() noexcept -> tResult<std::tuple<rs2::pipeline, float, float>>
   }
 }
 
-struct PipelineReady {
-  public:
-  PipelineReady(rs2::pipeline& pipe, rs2::frameset& frames) : pipe{pipe}, frames{frames} {}
-  bool await_ready() {
-    return pipe.poll_for_frames(&frames);
-  }
-  void await_suspend(std::coroutine_handle<>) {}
-  void await_resume() {}
-  rs2::pipeline &pipe;
-  rs2::frameset frames;
-};
-
 class RealsenseDevice {
   auto async_update(asio::io_context& io_ctx) -> asio::awaitable<void> {
     while (not pipe.poll_for_frames(&frames)) {
