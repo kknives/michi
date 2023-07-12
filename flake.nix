@@ -26,6 +26,7 @@
         glfw
         libGLU.dev
         spdlog.dev
+        asio
       ];
       configurePhase = ''
       cmake -S . -B build

@@ -2,12 +2,17 @@
 
 #include "expected.hpp"
 #include <asio/async_result.hpp>
+#include <asio/io_context.hpp>
+#include <compare>
+#include <librealsense2/h/rs_sensor.h>
 #include <spdlog/spdlog.h>
 #include <coroutine>
 #include <optional>
+#include <chrono>
 #include <librealsense2/hpp/rs_frame.hpp>
 #include <librealsense2/hpp/rs_pipeline.hpp>
 #include <librealsense2/hpp/rs_processing.hpp>
+#include <thread>
 #include <type_traits>
 #include <utility>
 #include <ranges>
@@ -20,6 +25,7 @@
 
 #include <asio.hpp>
 
+using namespace std::literals::chrono_literals;
 template <typename T>
 using tResult = tl::expected<T, std::error_code>;
 using tl::make_unexpected;
@@ -89,33 +95,25 @@ struct PipelineReady {
 };
 
 class RealsenseDevice {
-  template <asio::completion_token_for<void(void)> CompletionToken>
-  auto async_update(CompletionToken&& token) {
-    auto init = [this](asio::completion_handler_for<void(void)> auto handler) {
-      auto work = asio::make_work_guard(handler);
-      auto alloc = asio::get_associated_allocator(
-          handler, asio::recycling_allocator<void>());
+  auto async_update(asio::io_context& io_ctx) -> asio::awaitable<void> {
+    while (not pipe.poll_for_frames(&frames)) {
+      co_await asio::this_coro::executor;
+      std::this_thread::sleep_for(10ms);
+    }
 
-      while (not pipe.poll_for_frames(&frames)); // Can this be fixed
+    rs2::frame depth = frames.first(RS2_STREAM_DEPTH);
+    depth.get_data();
+    rs2::decimation_filter dec_filter;
+    rs2::temporal_filter temp_filter;
+    depth = dec_filter.process(depth);
+    depth = temp_filter.process(depth);
 
-      rs2::frame depth = frames.get_depth_frame();
-      rs2::decimation_filter dec_filter;
-      rs2::temporal_filter temp_filter;
-      depth = dec_filter.process(depth);
-      depth = temp_filter.process(depth);
-
-      rs2::pointcloud pc;
-      points.emplace(pc.calculate(depth));
-
-      asio::dispatch(work.get_executor(), asio::bind_allocator(alloc, [
-    handler = std::move(handler)
-  ]() mutable { std::move(handler)(); }));
-    };
-
-    return asio::async_initiate<CompletionToken, void(void)>(init, token);
+    rs2::pointcloud pc;
+    points.emplace(pc.calculate(depth));
   }
   
   public:
+  RealsenseDevice(rs2::pipeline& pipe) : pipe{pipe} {}
   auto async_get_rgb_frame() -> void;
   auto async_get_points(rs2::points& p) -> asio::awaitable<void>{
     if (not points.has_value()) co_await async_update();
