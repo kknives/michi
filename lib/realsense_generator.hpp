@@ -115,10 +115,9 @@ class RealsenseDevice {
   public:
   RealsenseDevice(rs2::pipeline& pipe) : pipe{pipe} {}
   auto async_get_rgb_frame() -> void;
-  auto async_get_points(rs2::points& p) -> asio::awaitable<void>{
-    if (not points.has_value()) co_await async_update();
-    p = std::move(points.value());
-    points.reset();
+  auto async_get_points(asio::io_context& io_ctx) -> asio::awaitable<rs2::points>{
+    if (not points.has_value()) co_await async_update(io_ctx);
+    co_return points.value();
   }
   private:
   rs2::pipeline pipe;
