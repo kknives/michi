@@ -112,9 +112,7 @@ class RealsenseDevice {
   }
   auto async_get_points(asio::io_context& io_ctx) -> asio::awaitable<rs2::points>{
     if (not points.has_value()) co_await async_update(io_ctx);
-    std::optional<rs2::points> replace_with_nullopt = std::nullopt;
-    points.swap(replace_with_nullopt);
-    co_return replace_with_nullopt.value();
+    co_return *std::exchange(points, std::nullopt);
   }
   private:
   rs2::pipeline pipe;
