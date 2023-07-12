@@ -27,6 +27,7 @@
         libGLU.dev
         spdlog.dev
         asio
+        gtest.dev
       ];
       configurePhase = ''
       cmake -S . -B build

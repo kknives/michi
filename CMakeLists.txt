@@ -42,15 +42,10 @@ if (BUILD_RS_PCL_SCRIPT)
         ${realsense2_LIBRARY} Eigen3::Eigen glfw ${OPENGL_LIBRARIES})
 endif()
 
-include(FetchContent)
-FetchContent_Declare(
-  googletest
-  URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
-)
-FetchContent_MakeAvailable(googletest)
+pkg_search_module(GTEST 1.12 REQUIRED gtest_main)
 add_executable(test_realsense_generator tests/test_realsense_generator.cpp)
 add_dependencies(test_realsense_generator Michi)
-target_link_libraries(test_realsense_generator PRIVATE Michi GTest::gtest_main)
+target_link_libraries(test_realsense_generator PRIVATE Michi ${GTEST_LDFLAGS})
 
 install(
     TARGETS
