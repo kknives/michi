@@ -47,6 +47,10 @@ add_executable(test_realsense_generator tests/test_realsense_generator.cpp)
 add_dependencies(test_realsense_generator Michi)
 target_link_libraries(test_realsense_generator PRIVATE Michi ${GTEST_LDFLAGS} -fsanitize=address)
 
+add_executable(test_mobilenet_arrow tests/test_mobilenet_arrow.cpp)
+add_dependencies(test_mobilenet_arrow Michi)
+target_link_libraries(test_mobilenet_arrow PRIVATE Michi ${GTEST_LDFLAGS} -fsanitize=address)
+
 install(
     TARGETS
     RUNTIME DESTINATION
