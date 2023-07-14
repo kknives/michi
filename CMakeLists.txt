@@ -17,7 +17,7 @@ find_package(realsense2 REQUIRED)
 find_package(Eigen3 3.3 REQUIRED)
 find_package(spdlog REQUIRED)
 
-add_library(Michi lib/realsense_generator.cpp)
+add_library(Michi lib/realsense_generator.cpp lib/mobilenet_arrow.cpp)
 target_compile_options(Michi PUBLIC -fcoroutines)
 target_include_directories(Michi PUBLIC lib ${OpenCV_INCLUDE_DIRS} ${realsense_INCLUDE_DIR}
     PRIVATE ${PCL_INCLUDE_DIRS})
