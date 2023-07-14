@@ -66,11 +66,13 @@ int main(int argc, ORTCHAR_T* argv[]) {
     std::cout << "\t" << input_names.at(i) << " : " << print_shape(input_shapes) << std::endl;
   }
   // some models might have negative shape values to indicate dynamic shape, e.g., for variable batch size.
-  for (auto& s : input_shapes) {
-    if (s < 0) {
-      s = 1;
-    }
-  }
+  input_shapes[1] = 480;
+  input_shapes[2] = 640;
+  // for (auto& s : input_shapes) {
+  //   if (s < 0) {
+  //     s = ;
+  //   }
+  // }
 
   // print name/shape of outputs
   std::vector<std::string> output_names;
@@ -85,18 +87,21 @@ int main(int argc, ORTCHAR_T* argv[]) {
   auto input_shape = input_shapes;
   auto total_number_elements = calculate_product(input_shape);
 
-  // generate random numbers in the range [0, 255]
-  std::vector<float> input_tensor_values{};
+  std::vector<uint8_t> input_tensor_values{};
   std::vector<Ort::Value> input_tensors;
 
-  cv::Mat image_bgr = cv::imread(argv[2], cv::IMREAD_COLOR);
-  // cv::resize(image_bgr, image_bgr, cv::Size(input_shape[1], input_shape[2]));
-  image_bgr.convertTo(image_bgr, CV_32F, 2.0f / 255.0f, -1.0f);
-  cv::dnn::blobFromImage(image_bgr, 1.0, cv::Size(input_shape[1], input_shape[2]));
-  // cv::dnn::blobFromImage(image_bgr, image_bgr);
-  input_tensor_values.assign(image_bgr.begin<float>(), image_bgr.end<float>());
+  cv::Mat image = cv::imread(argv[2]);
+  cv::cvtColor(image, image, cv::COLOR_BGR2RGB);
+
+  cv::Mat nhwcImage;
+  cv::transpose(image, nhwcImage);
+  nhwcImage = nhwcImage.reshape(1);
+
+  std::cout << "Image after cv: " << nhwcImage.size << '\n';
+  input_tensor_values.assign(nhwcImage.begin<uint8_t>(), nhwcImage.end<uint8_t>());
+  std::cout << "Size of input_tensor_values " << input_tensor_values.size() << '\n';
   
-  input_tensors.emplace_back(vec_to_tensor<float>(input_tensor_values, input_shape));
+  input_tensors.emplace_back(vec_to_tensor<uint8_t>(input_tensor_values, input_shape));
   // double-check the dimensions of the input tensor
   assert(input_tensors[0].IsTensor() && input_tensors[0].GetTensorTypeAndShapeInfo().GetShape() == input_shape);
   std::cout << "\ninput_tensor shape: " << print_shape(input_tensors[0].GetTensorTypeAndShapeInfo().GetShape()) << std::endl;
@@ -119,42 +124,22 @@ int main(int argc, ORTCHAR_T* argv[]) {
     // double-check the dimensions of the output tensors
     // NOTE: the number of output tensors is equal to the number of output nodes specifed in the Run() call
     assert(output_tensors.size() == output_names.size() && output_tensors[0].IsTensor());
-    // const float* detections = output_tensors[2].GetTensorData<float>();
-    // int idetections = int(*detections);
-    // std::cout << "No of detections: " << idetections << '\n';
 
-    // auto score_shape = output_tensors[3].GetTensorTypeAndShapeInfo().GetShape();
-    // std::cout << "Score tensor shape: ";
-    // std::copy(score_shape.begin(), score_shape.end(), std::ostream_iterator<int64_t>(std::cout, "x"));
-    // std::cout << '\n';
-    // std::cout << "Scores for each detection: " << "\n   ";
-    // const float* scores = output_tensors[3].GetTensorData<float>();
-    // std::copy(scores, scores + idetections, std::ostream_iterator<float>(std::cout, ", "));
-    // std::cout << '\n';
-
-    // auto bbox_shape = output_tensors[0].GetTensorTypeAndShapeInfo().GetShape();
-    // std::cout << "Bounding Box tensor shape: ";
-    // std::copy(bbox_shape.begin(), bbox_shape.end(), std::ostream_iterator<int64_t>(std::cout, "x"));
-    // std::cout << '\n';
-    // std::cout << "BBox for each detection: " << "\n   ";
-    // const float* bbox = output_tensors[0].GetTensorData<float>();
-    // std::copy(bbox, bbox + idetections, std::ostream_iterator<float>(std::cout, ", "));
-    // std::cout << '\n';
+    auto ndetections = output_tensors[5].GetTensorData<float>();
+    size_t detections = *ndetections;
+    std::cout << "No of detections: " << detections << '\n';
     
-    // auto class_shape = output_tensors[1].GetTensorTypeAndShapeInfo().GetShape();
-    // auto class_count = output_tensors[1].GetTensorTypeAndShapeInfo().GetElementCount();
-    // std::cout << "Class tensor shape: ";
-    // std::copy(class_shape.begin(), class_shape.end(), std::ostream_iterator<int64_t>(std::cout, "x"));
-    // std::cout << '\n';
-    // std::cout << "No of elements = " << class_count << '\n';
-    // const float* classv = output_tensors[1].GetTensorData<float>();
-    // for (int i = 0; i < class_count; i += 4) {
-    //   std::cout << "[ ";
-    //   std::cout << 320.0f*classv[i] << ", " << 320.0f*classv[i+1] << ", " <<
-    //     320.0f*classv[i+2] << ", " << 320.0f*classv[i+3] << " ]\n";
-    //   // std::copy(classv+i, classv+i+4, std::ostream_iterator<float>(std::cout, ", "));
-    //   // std::cout << " ]" << '\n';
-    // }
+    auto score_shape = output_tensors[4].GetTensorTypeAndShapeInfo().GetShape();
+    std::cout << "Score tensor shape: ";
+    std::copy(score_shape.begin(), score_shape.end(), std::ostream_iterator<int64_t>(std::cout, "x"));
+    std::cout << '\n';
+
+    const float* scores = output_tensors[4].GetTensorData<float>();
+    size_t best_detection = std::max_element(scores, scores+detections) - scores;
+
+    const float* classes = output_tensors[2].GetTensorData<float>();
+    std::cout << "Best Detection at: " << best_detection << " Prediction: " << classes[best_detection] << ", score: " << scores[best_detection] << '\n'; 
+
   } catch (const Ort::Exception& exception) {
       std::cout << "ERROR running model inference: " << exception.what() << std::endl;
     exit(-1);
