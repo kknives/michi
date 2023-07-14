@@ -1,26 +1,8 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
+// Modified by Team RUDRA
 
-/**
- * This sample application demonstrates how to use components of the experimental C++ API
- * to query for model inputs/outputs and how to run inferrence on a model.
- *
- * This example is best run with one of the ResNet models (i.e. ResNet18) from the onnx model zoo at
- *   https://github.com/onnx/models
- *
- * Assumptions made in this example:
- *  1) The onnx model has 1 input node and 1 output node
- *  2) The onnx model should have float input
- *
- *
- * In this example, we do the following:
- *  1) read in an onnx model
- *  2) print out some metadata information about inputs and outputs that the model expects
- *  3) generate random data for an input tensor
- *  4) pass tensor through the model and check the resulting tensor
- *
- */
-
+#include "opencv2/dnn/dnn.hpp"
 #include <algorithm>  // std::generate
 #include <iterator>
 #include <cassert>
@@ -31,6 +13,9 @@
 #include <string>
 #include <vector>
 #include <onnxruntime_cxx_api.h>
+
+#include <opencv4/opencv2/opencv.hpp>
+#include <opencv4/opencv2/dnn.hpp>
 
 // pretty prints a shape dimension vector
 std::string print_shape(const std::vector<std::int64_t>& v) {
@@ -59,8 +44,8 @@ int wmain(int argc, ORTCHAR_T* argv[]) {
 #else
 int main(int argc, ORTCHAR_T* argv[]) {
 #endif
-  if (argc != 2) {
-    std::cout << "Usage: ./onnx-api-example <onnx_model.onnx>" << std::endl;
+  if (argc != 3) {
+    std::cout << "Usage: ./onnx-api-example <onnx_model.onnx> <image.jpg>" << std::endl;
     return -1;
   }
 
@@ -97,19 +82,22 @@ int main(int argc, ORTCHAR_T* argv[]) {
     std::cout << "\t" << output_names.at(i) << " : " << print_shape(output_shapes) << std::endl;
   }
 
-  // Assume model has 1 input node and 1 output node.
-  // assert(input_names.size() == 1 && output_names.size() == 1);
-
   // Create a single Ort tensor of random numbers
   auto input_shape = input_shapes;
   auto total_number_elements = calculate_product(input_shape);
 
   // generate random numbers in the range [0, 255]
-  std::vector<float> input_tensor_values(total_number_elements);
-  std::generate(input_tensor_values.begin(), input_tensor_values.end(), [&] { return 255; });
+  std::vector<float> input_tensor_values{};
   std::vector<Ort::Value> input_tensors;
-  input_tensors.emplace_back(vec_to_tensor<float>(input_tensor_values, input_shape));
 
+  cv::Mat image_bgr = cv::imread(argv[2], cv::IMREAD_COLOR);
+  // cv::resize(image_bgr, image_bgr, cv::Size(input_shape[1], input_shape[2]));
+  image_bgr.convertTo(image_bgr, CV_32F, 2.0f / 255.0f, -1.0f);
+  cv::dnn::blobFromImage(image_bgr, 1.0, cv::Size(input_shape[1], input_shape[2]));
+  // cv::dnn::blobFromImage(image_bgr, image_bgr);
+  input_tensor_values.assign(image_bgr.begin<float>(), image_bgr.end<float>());
+  
+  input_tensors.emplace_back(vec_to_tensor<float>(input_tensor_values, input_shape));
   // double-check the dimensions of the input tensor
   assert(input_tensors[0].IsTensor() && input_tensors[0].GetTensorTypeAndShapeInfo().GetShape() == input_shape);
   std::cout << "\ninput_tensor shape: " << print_shape(input_tensors[0].GetTensorTypeAndShapeInfo().GetShape()) << std::endl;
@@ -132,40 +120,42 @@ int main(int argc, ORTCHAR_T* argv[]) {
     // double-check the dimensions of the output tensors
     // NOTE: the number of output tensors is equal to the number of output nodes specifed in the Run() call
     assert(output_tensors.size() == output_names.size() && output_tensors[0].IsTensor());
-    const float* detections = output_tensors[2].GetTensorData<float>();
-    int idetections = int(*detections);
-    std::cout << "No of detections: " << idetections << '\n';
+    // const float* detections = output_tensors[2].GetTensorData<float>();
+    // int idetections = int(*detections);
+    // std::cout << "No of detections: " << idetections << '\n';
 
-    auto score_shape = output_tensors[3].GetTensorTypeAndShapeInfo().GetShape();
-    std::cout << "Score tensor shape: ";
-    std::copy(score_shape.begin(), score_shape.end(), std::ostream_iterator<int64_t>(std::cout, "x"));
-    std::cout << '\n';
-    std::cout << "Scores for each detection: " << "\n   ";
-    const float* scores = output_tensors[3].GetTensorData<float>();
-    std::copy(scores, scores + idetections, std::ostream_iterator<float>(std::cout, ", "));
-    std::cout << '\n';
+    // auto score_shape = output_tensors[3].GetTensorTypeAndShapeInfo().GetShape();
+    // std::cout << "Score tensor shape: ";
+    // std::copy(score_shape.begin(), score_shape.end(), std::ostream_iterator<int64_t>(std::cout, "x"));
+    // std::cout << '\n';
+    // std::cout << "Scores for each detection: " << "\n   ";
+    // const float* scores = output_tensors[3].GetTensorData<float>();
+    // std::copy(scores, scores + idetections, std::ostream_iterator<float>(std::cout, ", "));
+    // std::cout << '\n';
 
-    auto bbox_shape = output_tensors[0].GetTensorTypeAndShapeInfo().GetShape();
-    std::cout << "Bounding Box tensor shape: ";
-    std::copy(bbox_shape.begin(), bbox_shape.end(), std::ostream_iterator<int64_t>(std::cout, "x"));
-    std::cout << '\n';
-    std::cout << "BBox for each detection: " << "\n   ";
-    const float* bbox = output_tensors[0].GetTensorData<float>();
-    std::copy(bbox, bbox + idetections, std::ostream_iterator<float>(std::cout, ", "));
-    std::cout << '\n';
+    // auto bbox_shape = output_tensors[0].GetTensorTypeAndShapeInfo().GetShape();
+    // std::cout << "Bounding Box tensor shape: ";
+    // std::copy(bbox_shape.begin(), bbox_shape.end(), std::ostream_iterator<int64_t>(std::cout, "x"));
+    // std::cout << '\n';
+    // std::cout << "BBox for each detection: " << "\n   ";
+    // const float* bbox = output_tensors[0].GetTensorData<float>();
+    // std::copy(bbox, bbox + idetections, std::ostream_iterator<float>(std::cout, ", "));
+    // std::cout << '\n';
     
-    auto class_shape = output_tensors[1].GetTensorTypeAndShapeInfo().GetShape();
-    auto class_count = output_tensors[1].GetTensorTypeAndShapeInfo().GetElementCount();
-    std::cout << "Class tensor shape: ";
-    std::copy(class_shape.begin(), class_shape.end(), std::ostream_iterator<int64_t>(std::cout, "x"));
-    std::cout << '\n';
-    std::cout << "No of elements = " << class_count << '\n';
-    const float* classv = output_tensors[1].GetTensorData<float>();
-    for (int i = 0; i < class_count; i += 4) {
-      std::cout << "[ ";
-      std::copy(classv+i, classv+i+4, std::ostream_iterator<float>(std::cout, ", "));
-      std::cout << " ]" << '\n';
-    }
+    // auto class_shape = output_tensors[1].GetTensorTypeAndShapeInfo().GetShape();
+    // auto class_count = output_tensors[1].GetTensorTypeAndShapeInfo().GetElementCount();
+    // std::cout << "Class tensor shape: ";
+    // std::copy(class_shape.begin(), class_shape.end(), std::ostream_iterator<int64_t>(std::cout, "x"));
+    // std::cout << '\n';
+    // std::cout << "No of elements = " << class_count << '\n';
+    // const float* classv = output_tensors[1].GetTensorData<float>();
+    // for (int i = 0; i < class_count; i += 4) {
+    //   std::cout << "[ ";
+    //   std::cout << 320.0f*classv[i] << ", " << 320.0f*classv[i+1] << ", " <<
+    //     320.0f*classv[i+2] << ", " << 320.0f*classv[i+3] << " ]\n";
+    //   // std::copy(classv+i, classv+i+4, std::ostream_iterator<float>(std::cout, ", "));
+    //   // std::cout << " ]" << '\n';
+    // }
   } catch (const Ort::Exception& exception) {
       std::cout << "ERROR running model inference: " << exception.what() << std::endl;
     exit(-1);
