@@ -6,7 +6,7 @@ if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR})
 message(FATAL_ERROR “In-source build detected!”)
 endif()
 
-set(default_build_type Debug)
+set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wfatal-errors")
@@ -19,9 +19,10 @@ find_package(spdlog REQUIRED)
 
 add_library(Michi lib/realsense_generator.cpp)
 target_compile_options(Michi PUBLIC -fcoroutines)
-target_include_directories(Michi PUBLIC lib ${realsense_INCLUDE_DIR}
+target_include_directories(Michi PUBLIC lib ${OpenCV_INCLUDE_DIRS} ${realsense_INCLUDE_DIR}
     PRIVATE ${PCL_INCLUDE_DIRS})
-target_link_libraries(Michi PRIVATE ${PCL_LIBRARIES} ${OpenCV_LIBS} 
+target_link_libraries(Michi PRIVATE ${PCL_LIBRARIES} ${OpenCV_LIBS}
+    libonnxruntime.so
     PUBLIC ${realsense2_LIBRARY} Eigen3::Eigen spdlog::spdlog)
 
 option(BUILD_RS_PCL_SCRIPT "Build rs-pcl-color.cpp script for prototyping" OFF)
