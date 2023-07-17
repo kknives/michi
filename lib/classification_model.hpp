@@ -11,17 +11,17 @@ class ClassificationModel {
   private:
   struct dClassification{
     virtual ~dClassification() {}
-    virtual size_t classify(const cv::Mat& image) const = 0;
+    virtual size_t classify(cv::Mat& image) const = 0;
   };
 
   template <typename T>
   struct cClassification : public dClassification {
-    size_t classify(const cv::Mat& image) const override {
+    size_t classify(cv::Mat& image) const override {
       return classify(m_value, image);
     }
     T m_value;
   };
-  friend size_t classify(const ClassificationModel& model, const cv::Mat& image) {
+  friend size_t classify(const ClassificationModel& model, cv::Mat& image) {
     return model.m_value->classify(image);
   }
   std::unique_ptr<dClassification> m_value;
