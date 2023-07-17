@@ -59,11 +59,7 @@ public:
     cv::transpose(image, image);
     image = image.reshape(
       1); // Use OpenCV's NCHW behaviour for adding the N "channel"
-    // spdlog::debug("Image after cv processing: {}", image.size); // FIXME
-    assert(image.size.p[0] == MOBILENET_ARROW_INPUT_SHAPE[0] and
-           image.size.p[1] == MOBILENET_ARROW_INPUT_SHAPE[1] and
-           image.size.p[2] == MOBILENET_ARROW_INPUT_SHAPE[2] and
-           image.size.p[3] == MOBILENET_ARROW_INPUT_SHAPE[3]);
+    assert(image.size.p[0]*image.size.p[1] == product(std::span(MOBILENET_ARROW_INPUT_SHAPE)));
     auto dest = m_input_tensor[0].GetTensorMutableData<uint8_t>();
     std::copy(image.begin<uint8_t>(), image.end<uint8_t>(), dest);
 
