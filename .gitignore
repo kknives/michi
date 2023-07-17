@@ -5,6 +5,9 @@ result
 compile_commands.json
 *.log
 
+*.tflite
+*.onnx
+
 # Prerequisites
 *.d
 
