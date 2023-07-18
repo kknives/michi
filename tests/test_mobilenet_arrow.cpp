@@ -14,10 +14,10 @@ TEST(test_mobilenet_arrow, ProcessesImageFrameCorrectly) {
 }
 
 TEST(test_mobilenet_arrow, ReturnsBoundingBox) {
-  MobilenetArrowClassifier mac("lib/saved_model_checkpoint4.onnx");
+  auto mac = ClassificationModel(MobilenetArrowClassifier("lib/saved_model_checkpoint4.onnx"));
   cv::Mat image = cv::imread("tests/sample_left_arrow.jpg");
-  EXPECT_EQ(mac.classify(image), 1);
-  auto bb = mac.get_bounding_box();
+  EXPECT_EQ(classify(mac, image), 1);
+  auto bb = get_bounding_box(mac);
   EXPECT_GT(bb.size(), 0);
   EXPECT_LT(bb[0]*480, 480);
   EXPECT_LT(bb[1]*640, 640);

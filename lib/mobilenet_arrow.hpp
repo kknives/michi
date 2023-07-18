@@ -89,10 +89,10 @@ public:
       best_detection, std::move(output_tensors)));
     return classes[best_detection];
   }
-  std::array<float, 4> get_bounding_box()
+  friend std::array<float, 4> model_get_bounding_box(const MobilenetArrowClassifier& mac)
   {
-    assert(m_outputs.has_value());
-    auto& [detection, output_tensor] = *m_outputs;
+    assert(mac.m_outputs.has_value());
+    auto& [detection, output_tensor] = *mac.m_outputs;
     const float* boxes = output_tensor[1].GetTensorData<float>();
     // top, left, bottom, right
     std::array<float, 4> m{*(boxes+4*detection), *(boxes+4*detection + 1), *(boxes+4*detection + 2), *(boxes+4*detection + 3)};
