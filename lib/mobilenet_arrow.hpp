@@ -9,6 +9,7 @@
 #include <onnxruntime_cxx_api.h>
 #include <opencv4/opencv2/dnn/dnn.hpp>
 #include <opencv4/opencv2/opencv.hpp>
+#include <optional>
 #include <span>
 #include <spdlog/spdlog.h>
 
@@ -38,6 +39,7 @@ class MobilenetArrowClassifier
 
   Ort::AllocatorWithDefaultOptions m_allocator;
   std::array<Ort::Value, 1> m_input_tensor;
+  std::optional<std::tuple<size_t, std::vector<Ort::Value>>> m_outputs;
 
 public:
   MobilenetArrowClassifier(std::string const& s)
@@ -52,6 +54,7 @@ public:
   }
   size_t classify(cv::Mat image)
   {
+    m_outputs.reset();
     // Image preprocessing
     cv::cvtColor(image, image, cv::COLOR_BGR2RGB);
 
@@ -69,6 +72,22 @@ public:
                                         MOBILENET_ARROW_INPUT_NAMES.size(),
                                         MOBILENET_ARROW_OUTPUT_NAMES.data(),
                                         MOBILENET_ARROW_OUTPUT_NAMES.size());
-    // TODO: Complete this
+
+    const float* ndetections = output_tensors[5].GetTensorData<float>();
+    size_t detections = *ndetections;
+
+    const float* scores = output_tensors[4].GetTensorData<float>();
+    size_t best_detection =
+      std::max_element(scores, scores + detections) - scores;
+    const float* classes = output_tensors[2].GetTensorData<float>();
+    spdlog::debug("Best detection at: {}, prediction {}, score {}",
+                 best_detection,
+                 classes[best_detection],
+                 scores[best_detection]);
+
+    m_outputs.emplace(std::make_pair(
+      best_detection, std::move(output_tensors)));
+    return classes[best_detection];
+  }
   }
 };
