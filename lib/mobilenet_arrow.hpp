@@ -1,6 +1,5 @@
 #pragma once
 
-#include "classification_model.hpp"
 #include <algorithm>
 #include <iostream>
 #include <librealsense2/rs.hpp>

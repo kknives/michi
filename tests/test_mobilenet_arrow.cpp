@@ -1,12 +1,14 @@
 #include <gtest/gtest.h>
 #include "mobilenet_arrow.hpp"
+#include "classification_model.hpp"
 #include <opencv4/opencv2/opencv.hpp>
 
 TEST(test_mobilenet_arrow, ProcessesImageFrameCorrectly) {
-  MobilenetArrowClassifier mac("lib/saved_model_checkpoint4.onnx");
+  auto mac = ClassificationModel(MobilenetArrowClassifier("lib/saved_model_checkpoint4.onnx"));
   cv::Mat image = cv::imread("tests/sample_left_arrow.jpg");
-  EXPECT_EQ(mac.classify(image), 1);
+  EXPECT_EQ(classify(mac, image), 1);
 
+  // FIXME
   // cv::Mat image2 = cv::imread("tests/sample_right_arrow.jpg");
   // EXPECT_EQ(mac.classify(image2), 2);
 }
