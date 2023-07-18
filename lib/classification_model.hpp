@@ -12,7 +12,7 @@ class ClassificationModel {
   template <typename T>
   struct cClassification : public dClassification {
     size_t classify(cv::Mat& image) override {
-      return m_value.classify(image);
+      return model_classify(m_value, image);
     }
     cClassification(T&& t) : m_value(std::move(t)) {}
     T m_value;

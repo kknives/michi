@@ -51,9 +51,9 @@ public:
   {
     spdlog::info("Initialized and loaded MobilenetArrow ONNX session");
   }
-  size_t classify(cv::Mat image)
+  friend size_t model_classify(MobilenetArrowClassifier& mac, cv::Mat& image)
   {
-    m_outputs.reset();
+    mac.m_outputs.reset();
     // Image preprocessing
     cv::cvtColor(image, image, cv::COLOR_BGR2RGB);
 
@@ -63,12 +63,12 @@ public:
       1); // Use OpenCV's NCHW behaviour for adding the N "channel"
     assert(image.size.p[0] * image.size.p[1] ==
            product(std::span(MOBILENET_ARROW_INPUT_SHAPE)));
-    auto dest = m_input_tensor[0].GetTensorMutableData<uint8_t>();
+    auto dest = mac.m_input_tensor[0].GetTensorMutableData<uint8_t>();
     std::copy(image.begin<uint8_t>(), image.end<uint8_t>(), dest);
 
-    auto output_tensors = m_session.Run(Ort::RunOptions{ nullptr },
+    auto output_tensors = mac.m_session.Run(Ort::RunOptions{ nullptr },
                                         MOBILENET_ARROW_INPUT_NAMES.data(),
-                                        m_input_tensor.data(),
+                                        mac.m_input_tensor.data(),
                                         MOBILENET_ARROW_INPUT_NAMES.size(),
                                         MOBILENET_ARROW_OUTPUT_NAMES.data(),
                                         MOBILENET_ARROW_OUTPUT_NAMES.size());
@@ -85,7 +85,7 @@ public:
                  classes[best_detection],
                  scores[best_detection]);
 
-    m_outputs.emplace(std::make_pair(
+    mac.m_outputs.emplace(std::make_pair(
       best_detection, std::move(output_tensors)));
     return classes[best_detection];
   }
