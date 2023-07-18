@@ -62,7 +62,8 @@ public:
     cv::transpose(image, image);
     image = image.reshape(
       1); // Use OpenCV's NCHW behaviour for adding the N "channel"
-    assert(image.size.p[0]*image.size.p[1] == product(std::span(MOBILENET_ARROW_INPUT_SHAPE)));
+    assert(image.size.p[0] * image.size.p[1] ==
+           product(std::span(MOBILENET_ARROW_INPUT_SHAPE)));
     auto dest = m_input_tensor[0].GetTensorMutableData<uint8_t>();
     std::copy(image.begin<uint8_t>(), image.end<uint8_t>(), dest);
 
@@ -89,5 +90,14 @@ public:
       best_detection, std::move(output_tensors)));
     return classes[best_detection];
   }
+  std::array<float, 4> get_bounding_box()
+  {
+    assert(m_outputs.has_value());
+    auto& [detection, output_tensor] = *m_outputs;
+    const float* boxes = output_tensor[1].GetTensorData<float>();
+    // top, left, bottom, right
+    std::array<float, 4> m{*(boxes+4*detection), *(boxes+4*detection + 1), *(boxes+4*detection + 2), *(boxes+4*detection + 3)};
+    spdlog::info("Bounding box {},{},{},{}", m[0],m[1],m[2],m[3]);
+    return m;
   }
 };
