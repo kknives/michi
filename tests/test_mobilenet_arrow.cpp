@@ -10,7 +10,7 @@ TEST(test_mobilenet_arrow, ProcessesImageFrameCorrectly) {
 
   // FIXME
   // cv::Mat image2 = cv::imread("tests/sample_right_arrow.jpg");
-  // EXPECT_EQ(mac.classify(image2), 2);
+  // EXPECT_EQ(classify(mac, image2), 2);
 }
 
 TEST(test_mobilenet_arrow, ReturnsBoundingBox) {
