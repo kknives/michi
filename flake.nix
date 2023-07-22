@@ -17,6 +17,25 @@
                 --replace "\''${_IMPORT_PREFIX}/include" "$dev/include"
             '';
           });
+          packages.mavlink_c = with pkgs;
+            stdenv.mkDerivation {
+              name = "mavlink_c_library_v2";
+              src = fetchFromGitHub {
+                owner = "mavlink";
+                repo = "c_library_v2";
+                rev = "494fd857a34267d01c2d3c2d601ecfa651f73489";
+                sha256 = "sha256-FiuD9G+1sSYfBFpTCw6c5mnpFbDkZJwYFYtL3o1ujAo=";
+              };
+              outputs = ["out" "dev"];
+              dontConfigure = true;
+              dontBuild = true;
+              installPhase = ''
+              mkdir -p $out
+              mkdir -p $dev
+              cp -R standard common $dev
+              cp checksum.h mavlink_conversions.h mavlink_helpers.h mavlink_sha256.h mavlink_types.h protocol.h $dev
+              '';
+            };
         packages.michi = with pkgs;
           stdenv.mkDerivation {
             name = "michi";
@@ -33,6 +52,7 @@
               asio
               gtest.dev
               onnxruntime.dev
+              packages.mavlink_c.dev
             ];
             configurePhase = ''
               cmake -S . -B build
