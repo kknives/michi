@@ -30,10 +30,9 @@
               dontConfigure = true;
               dontBuild = true;
               installPhase = ''
-              mkdir -p $out
-              mkdir -p $dev
-              cp -R standard common $dev
-              cp checksum.h mavlink_conversions.h mavlink_helpers.h mavlink_sha256.h mavlink_types.h protocol.h $dev
+              mkdir -p $out/include/mavlink
+              cp -R standard common minimal $out/include/mavlink
+              cp *.h $out/include/mavlink
               '';
             };
         packages.michi = with pkgs;
@@ -52,7 +51,7 @@
               asio
               gtest.dev
               onnxruntime.dev
-              packages.mavlink_c.dev
+              packages.mavlink_c
             ];
             configurePhase = ''
               cmake -S . -B build
