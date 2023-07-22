@@ -26,8 +26,18 @@
                 rev = "494fd857a34267d01c2d3c2d601ecfa651f73489";
                 sha256 = "sha256-FiuD9G+1sSYfBFpTCw6c5mnpFbDkZJwYFYtL3o1ujAo=";
               };
-              outputs = ["out" "dev"];
-              dontConfigure = true;
+              nativeBuildInputs = [ copyPkgconfigItems ];
+              pkgconfigItems = [
+                (makePkgconfigItem rec {
+                  name = "mavlink_c";
+                  version = "2";
+                  cflags = [ "-I${variables.includedir}/mavlink"];
+                  variables = rec {
+                    prefix = "${placeholder "out"}";
+                    includedir = "${prefix}/include";
+                  };
+                })
+              ];
               dontBuild = true;
               installPhase = ''
               mkdir -p $out/include/mavlink
