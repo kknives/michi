@@ -13,11 +13,41 @@
 #include <memory>
 #include <span>
 
+enum class MavlinkErrc {
+  NoHeartbeat = 1, // System Failure
+  TransmitTimeout = 10, // Communication failure
+  ReceiveTimeout,
+};
+struct MavlinkErrCategory : std::error_category {
+  const char* name() const noexcept override {
+    return "AutopilotCommunication";
+  }
+  std::string message(int ev) const override {
+    switch (static_cast<MavlinkErrc>(ev)) {
+      case MavlinkErrc::NoHeartbeat:
+      return "no heartbeat received from autopilot";
+      case MavlinkErrc::ReceiveTimeout:
+      return "did not get response, timed out";
+      case MavlinkErrc::TransmitTimeout:
+      return "could not send message, timed out";
+      default:
+      return "(unrecognized error)";
+    }
+  }
+};
+const MavlinkErrCategory mavlinkerrc_category;
+std::error_code make_error_code(MavlinkErrc e) {
+  return {static_cast<int>(e), mavlinkerrc_category};
+}
+namespace std {
+  template <>
+  struct is_error_code_enum<MavlinkErrc> : true_type {};
+}
 using namespace std::chrono;
 using namespace asio::experimental::awaitable_operators;
-
 constexpr auto use_nothrow_awaitable = asio::experimental::as_tuple(asio::use_awaitable);
 const float INVALID = 0.0f;
+
 class MavlinkInterface
 {
   asio::serial_port m_uart;
