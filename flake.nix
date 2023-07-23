@@ -40,9 +40,11 @@
               ];
               dontBuild = true;
               installPhase = ''
+              runHook preInstall
               mkdir -p $out/include/mavlink
               cp -R standard common minimal $out/include/mavlink
               cp *.h $out/include/mavlink
+              runHook postInstall
               '';
             };
         packages.michi = with pkgs;

@@ -16,11 +16,12 @@ find_package(OpenCV REQUIRED)
 find_package(realsense2 REQUIRED)
 find_package(Eigen3 3.3 REQUIRED)
 find_package(spdlog REQUIRED)
+pkg_check_modules(MAVLink mavlink_c)
 
-add_library(Michi lib/realsense_generator.cpp lib/mobilenet_arrow.cpp)
+add_library(Michi lib/realsense_generator.cpp lib/mobilenet_arrow.cpp lib/ardupilot_interface.cpp)
 target_compile_options(Michi PUBLIC -fcoroutines)
 target_include_directories(Michi PUBLIC lib ${OpenCV_INCLUDE_DIRS} ${realsense_INCLUDE_DIR}
-    PRIVATE ${PCL_INCLUDE_DIRS})
+    PRIVATE ${PCL_INCLUDE_DIRS} ${MAVLink_INCLUDE_DIRS})
 target_link_libraries(Michi PRIVATE ${PCL_LIBRARIES} ${OpenCV_LIBS}
     libonnxruntime.so
     PUBLIC ${realsense2_LIBRARY} Eigen3::Eigen spdlog::spdlog)
