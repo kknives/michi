@@ -96,9 +96,8 @@ class MavlinkInterface
   {
     uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
     auto len = mavlink_msg_to_send_buffer(buffer, &msg);
-    auto ret_tup = co_await asio::async_write(
+    return asio::async_write(
       m_uart, asio::buffer(buffer, len), use_nothrow_awaitable);
-    co_return ret_tup;
   }
   auto wait_for_next_message(uint8_t channel) -> asio::awaitable<tResult<void>>
   {
