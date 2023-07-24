@@ -81,6 +81,24 @@ class MavlinkInterface
   inline auto get_uptime() -> uint32_t {
     return duration_cast<milliseconds>(steady_clock::now() - m_start).count();
   }
+  auto wait_for_next_message(uint8_t channel) -> asio::awaitable<tResult<void>> {
+    mavlink_status_t* status = mavlink_get_channel_status(channel);
+    auto msgs_before = status->msg_received;
+
+    std::vector<uint8_t> buffer(8);
+    while (status->msg_received == msgs_before) {
+      auto [error, len] = co_await m_uart.async_read_some(asio::buffer(buffer), use_nothrow_awaitable);
+      if (error) co_return make_unexpected(static_cast<std::error_code>(error));
+
+      std::for_each_n(cbegin(buffer), len, [channel, status](const uint8_t c) {
+        mavlink_message_t msg;
+        mavlink_parse_char(channel, c, &msg, status);
+      });
+    }
+  }
+  auto set_guided_mode() {}
+  auto arm_autopilot() {}
+  auto disarm_autopilot() {}
 public:
   MavlinkInterface(asio::serial_port sp)
     : m_uart{ std::move(sp) }, m_start{steady_clock::now()}
