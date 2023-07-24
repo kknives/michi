@@ -81,6 +81,12 @@ class MavlinkInterface
   inline auto get_uptime() -> uint32_t {
     return duration_cast<milliseconds>(steady_clock::now() - m_start).count();
   }
+  auto send_message(const mavlink_message_t& msg) -> asio::awaitable<std::tuple<asio::error_code, std::size_t>> {
+    uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
+    auto len = mavlink_msg_to_send_buffer(buffer, &msg);
+    auto ret_tup = co_await asio::async_write(m_uart, asio::buffer(buffer, len), use_nothrow_awaitable);
+    co_return ret_tup;
+  }
   auto wait_for_next_message(uint8_t channel) -> asio::awaitable<tResult<void>> {
     mavlink_status_t* status = mavlink_get_channel_status(channel);
     auto msgs_before = status->msg_received;
@@ -88,7 +94,7 @@ class MavlinkInterface
     std::vector<uint8_t> buffer(8);
     while (status->msg_received == msgs_before) {
       auto [error, len] = co_await m_uart.async_read_some(asio::buffer(buffer), use_nothrow_awaitable);
-      if (error) co_return make_unexpected(static_cast<std::error_code>(error));
+      if (error) co_return make_unexpected(error);
 
       std::for_each_n(cbegin(buffer), len, [channel, status](const uint8_t c) {
         mavlink_message_t msg;
@@ -128,9 +134,7 @@ public:
       INVALID,
       INVALID,
       INVALID);
-    uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
-    auto len = mavlink_msg_to_send_buffer(buffer, &msg);
-    auto [error, written] = co_await asio::async_write(m_uart, asio::buffer(buffer, len), use_nothrow_awaitable);
+    auto [error, written] = co_await send_message(msg);
     // TODO: add cancellation and time out here
     if (error) {
       co_return make_unexpected(MavlinkErrc::FailedWrite);
