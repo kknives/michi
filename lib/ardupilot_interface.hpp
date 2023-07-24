@@ -156,6 +156,7 @@ public:
     auto [error, written] = co_await send_message(msg);
     // TODO: add cancellation and time out here
     if (error) {
+      spdlog::error("Could not send set_target, asio error: {}", error.message());
       co_return make_unexpected(MavlinkErrc::FailedWrite);
     }
   }
@@ -176,6 +177,7 @@ public:
                                     MAV_STATE_STANDBY);
     auto [error, written] = co_await send_message(msg);
     if (error) {
+      spdlog::error("Could not send heartbeat, asio error: {}", error.message());
       co_return make_unexpected(MavlinkErrc::FailedWrite);
     }
 
