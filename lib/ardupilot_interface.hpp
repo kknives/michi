@@ -1,5 +1,6 @@
 #pragma once
 
+#include "expected.hpp"
 #include "mavlink_types.h"
 #include <algorithm>
 #include <asio.hpp>
@@ -15,7 +16,9 @@
 
 enum class MavlinkErrc {
   NoHeartbeat = 1, // System Failure
-  TransmitTimeout = 10, // Communication failure
+  FailedWrite,
+  FailedRead,
+  TransmitTimeout = 10, // Timeouts
   ReceiveTimeout,
 };
 struct MavlinkErrCategory : std::error_category {
@@ -26,6 +29,10 @@ struct MavlinkErrCategory : std::error_category {
     switch (static_cast<MavlinkErrc>(ev)) {
       case MavlinkErrc::NoHeartbeat:
       return "no heartbeat received from autopilot";
+      case MavlinkErrc::FailedWrite:
+      return "could not write, asio error";
+      case MavlinkErrc::FailedRead:
+      return "could not read, asio error";
       case MavlinkErrc::ReceiveTimeout:
       return "did not get response, timed out";
       case MavlinkErrc::TransmitTimeout:
@@ -43,6 +50,10 @@ namespace std {
   template <>
   struct is_error_code_enum<MavlinkErrc> : true_type {};
 }
+
+template <typename T>
+using tResult = tl::expected<T, std::error_code>;
+using tl::make_unexpected;
 using namespace std::chrono;
 using namespace asio::experimental::awaitable_operators;
 constexpr auto use_nothrow_awaitable = asio::experimental::as_tuple(asio::use_awaitable);
@@ -75,7 +86,7 @@ public:
     : m_uart{ std::move(sp) }, m_start{steady_clock::now()}
   {
   }
-  auto set_target_position_local(std::span<float, 3> xyz) -> asio::awaitable<void>
+  auto set_target_position_local(std::span<float, 3> xyz) -> asio::awaitable<tResult<void>>
   {
     mavlink_message_t msg;
     mavlink_msg_set_position_target_local_ned_pack_chan(
@@ -102,31 +113,13 @@ public:
     uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
     auto len = mavlink_msg_to_send_buffer(buffer, &msg);
     auto [error, written] = co_await asio::async_write(m_uart, asio::buffer(buffer, len), use_nothrow_awaitable);
-    // consider timeout and error handling
+    // TODO: add cancellation and time out here
+    if (error) {
+      co_return make_unexpected(MavlinkErrc::FailedWrite);
+    }
   }
-  void set_target_pos_vel_accel_local()
-  {
-    mavlink_message_t msg;
-    mavlink_msg_set_position_target_local_ned_pack(0,
-                                                   0,
-                                                   &msg,
-                                                   0,
-                                                   0,
-                                                   0,
-                                                   MAV_FRAME_LOCAL_OFFSET_NED,
-                                                   0x0DF8,
-                                                   0,
-                                                   0,
-                                                   0,
-                                                   0,
-                                                   0,
-                                                   0,
-                                                   0,
-                                                   0,
-                                                   0,
-                                                   0,
-                                                   0);
-  }
-  void set_target_heading_local() {}
-  void get_position() {}
+  auto set_target_velocity_local(){}
+  auto set_target_heading_local() {}
+  auto get_position_global() {}
+  auto send_heartbeat() {}
 };
