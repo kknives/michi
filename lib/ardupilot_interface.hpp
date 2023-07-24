@@ -2,6 +2,7 @@
 
 #include "expected.hpp"
 #include "mavlink_types.h"
+#include <spdlog/spdlog.h>
 #include <algorithm>
 #include <asio.hpp>
 #include <asio/serial_port.hpp>
@@ -64,8 +65,8 @@ class MavlinkInterface
   asio::serial_port m_uart;
   time_point<steady_clock> m_start;
 
-  uint8_t m_targets_channel = 1;
   uint8_t m_heartbeat_channel = 0;
+  uint8_t m_targets_channel = 1;
   uint8_t m_positions_channel = 2;
 
   // Guidance computer shares the system id with the autopilot => same system
@@ -143,5 +144,18 @@ public:
   auto set_target_velocity_local(){}
   auto set_target_heading_local() {}
   auto get_position_global() {}
-  auto send_heartbeat() {}
+  auto heartbeat() -> asio::awaitable<tResult<void>>{
+    mavlink_message_t msg;
+    mavlink_msg_heartbeat_pack_chan(m_system_id, m_my_id, m_heartbeat_channel, &msg,
+    MAV_TYPE_ONBOARD_CONTROLLER, MAV_AUTOPILOT_INVALID, MAV_MODE_FLAG_GUIDED_ENABLED, INVALID, MAV_STATE_STANDBY);
+    auto [error, written] = co_await send_message(msg);
+    if (error) {
+      co_return make_unexpected(MavlinkErrc::FailedWrite);
+    }
+
+    co_await wait_for_next_message(m_heartbeat_channel);
+    const mavlink_message_t* new_msg = mavlink_get_channel_buffer(m_heartbeat_channel);
+    if (new_msg->msgid != MAVLINK_MSG_ID_HEARTBEAT) co_return make_unexpected(MavlinkErrc::NoHeartbeat);
+    spdlog::debug("Got heartbeat");
+  }
 };
