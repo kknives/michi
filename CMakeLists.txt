@@ -51,6 +51,9 @@ target_link_libraries(test_realsense_generator PRIVATE Michi ${GTEST_LDFLAGS} -f
 add_executable(test_mobilenet_arrow tests/test_mobilenet_arrow.cpp)
 add_dependencies(test_mobilenet_arrow Michi)
 target_link_libraries(test_mobilenet_arrow PRIVATE Michi ${GTEST_LDFLAGS} -fsanitize=address)
+add_executable(test_ardupilot_interface tests/test_ardupilot_interface.cpp)
+add_dependencies(test_ardupilot_interface Michi)
+target_link_libraries(test_ardupilot_interface PRIVATE Michi ${GTEST_LDFLAGS} -fsanitize=address)
 
 option(BUILD_MOBILENET_SCRIPT "Build run_mobilenet_arrow.cpp for running models" OFF)
 if (BUILD_MOBILENET_SCRIPT)
