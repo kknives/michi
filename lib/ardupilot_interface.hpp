@@ -1,7 +1,6 @@
 #pragma once
 
 #include "expected.hpp"
-#include "mavlink_types.h"
 #include <algorithm>
 #include <asio.hpp>
 #include <asio/experimental/as_tuple.hpp>
@@ -78,7 +77,7 @@ class MavlinkInterface
   uint8_t m_positions_channel = 2;
 
   // Guidance computer shares the system id with the autopilot => same system
-  uint8_t m_system_id = 0;
+  uint8_t m_system_id = 1;
   uint8_t m_component_id = 1;
   uint8_t m_my_id = 5;
 
@@ -155,7 +154,8 @@ public:
     auto [error, written] = co_await send_message(msg);
     // TODO: add cancellation and time out here
     if (error) {
-      spdlog::error("Could not send set_target, asio error: {}", error.message());
+      spdlog::error("Could not send set_target, asio error: {}",
+                    error.message());
       co_return make_unexpected(MavlinkErrc::FailedWrite);
     }
   }
@@ -176,15 +176,17 @@ public:
                                     MAV_STATE_STANDBY);
     auto [error, written] = co_await send_message(msg);
     if (error) {
-      spdlog::error("Could not send heartbeat, asio error: {}", error.message());
+      spdlog::error("Could not send heartbeat, asio error: {}",
+                    error.message());
       co_return make_unexpected(MavlinkErrc::FailedWrite);
     }
 
     co_await wait_for_next_message(m_heartbeat_channel);
     const mavlink_message_t* new_msg =
       mavlink_get_channel_buffer(m_heartbeat_channel);
+    spdlog::info("Got message id {}", new_msg->msgid);
     if (new_msg->msgid != MAVLINK_MSG_ID_HEARTBEAT)
       co_return make_unexpected(MavlinkErrc::NoHeartbeat);
-    spdlog::debug("Got heartbeat");
+    spdlog::info("Got heartbeat");
   }
 };
