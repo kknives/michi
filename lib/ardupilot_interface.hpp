@@ -10,6 +10,7 @@
 #include <chrono>
 #include <cmath>
 #include <mavlink/common/mavlink.h>
+#include <mavlink/mavlink_helpers.h>
 #include <memory>
 #include <span>
 #include <spdlog/spdlog.h>
@@ -17,6 +18,7 @@
 enum class MavlinkErrc
 {
   NoHeartbeat = 1, // System Failure
+  NoCommandAck,
   FailedWrite,
   FailedRead,
   TransmitTimeout = 10, // Timeouts
@@ -33,6 +35,8 @@ struct MavlinkErrCategory : std::error_category
     switch (static_cast<MavlinkErrc>(ev)) {
       case MavlinkErrc::NoHeartbeat:
         return "no heartbeat received from autopilot";
+      case MavlinkErrc::NoCommandAck:
+      return "no ack received after command";
       case MavlinkErrc::FailedWrite:
         return "could not write, asio error";
       case MavlinkErrc::FailedRead:
@@ -121,10 +125,112 @@ class MavlinkInterface
   auto disarm_autopilot() {}
 
 public:
-  MavlinkInterface(asio::serial_port sp)
+  MavlinkInterface(asio::serial_port&& sp)
     : m_uart{ std::move(sp) }
     , m_start{ steady_clock::now() }
   {
+  }
+  auto init() -> asio::awaitable<tResult<void>>
+  {
+    using std::tie;
+    using std::ignore;
+
+    std::error_code error;
+    mavlink_message_t msg;
+    auto set_param_curried = std::bind_front(mavlink_msg_param_set_pack_chan,
+                                             m_system_id,
+                                             m_my_id,
+                                             m_heartbeat_channel,
+                                             &msg,
+                                             m_system_id,
+                                             m_component_id);
+    bool ran_once = false;
+    while (not ran_once) // RUN THIS ONLY ONCE
+    {
+      ran_once = true;
+      set_param_curried("SR0_RAW_SENS", 0, MAV_PARAM_TYPE_INT16);
+      tie(error, ignore) = co_await send_message(msg);
+      if (error)
+        break;
+
+      set_param_curried("SR0_EXT_STAT", 0, MAV_PARAM_TYPE_INT16);
+      tie(error, ignore) = co_await send_message(msg);
+      if (error)
+        break;
+
+      set_param_curried("SR0_RC_CHAN", 0, MAV_PARAM_TYPE_INT16);
+      tie(error, ignore) = co_await send_message(msg);
+      if (error)
+        break;
+
+      set_param_curried("SR0_RAW_CTRL", 0, MAV_PARAM_TYPE_INT16);
+      tie(error, ignore) = co_await send_message(msg);
+      if (error)
+        break;
+
+      set_param_curried("SR0_POSITION", 0, MAV_PARAM_TYPE_INT16);
+      tie(error, ignore) = co_await send_message(msg);
+      if (error)
+        break;
+
+      set_param_curried("SR0_EXTRA1", 0, MAV_PARAM_TYPE_INT16);
+      tie(error, ignore) = co_await send_message(msg);
+      if (error)
+        break;
+
+      set_param_curried("SR0_EXTRA2", 0, MAV_PARAM_TYPE_INT16);
+      tie(error, ignore) = co_await send_message(msg);
+      if (error)
+        break;
+
+      set_param_curried("SR0_EXTRA3", 0, MAV_PARAM_TYPE_INT16);
+      tie(error, ignore) = co_await send_message(msg);
+      if (error)
+        break;
+
+      set_param_curried("SR0_PARAMS", 0, MAV_PARAM_TYPE_INT16);
+      tie(error, ignore) = co_await send_message(msg);
+      if (error)
+        break;
+
+      set_param_curried("SR0_ADSB", 0, MAV_PARAM_TYPE_INT16);
+      // mavlink_msg_param_set_pack_chan(m_system_id, m_my_id,
+      // m_heartbeat_channel, &msg, m_system_id, m_component_id, "SR0_ADSB", 0,
+      // MAV_PARAM_TYPE_INT16);
+      tie(error, ignore) = co_await send_message(msg);
+      if (error)
+        break;
+
+      const uint16_t mav_cmd_preflight_reboot_shutdown = 246;
+      mavlink_msg_command_int_pack_chan(m_system_id,
+                                        m_my_id,
+                                        m_heartbeat_channel,
+                                        &msg,
+                                        m_system_id,
+                                        m_component_id,
+                                        MAV_FRAME_LOCAL_NED,
+                                        mav_cmd_preflight_reboot_shutdown,
+                                        0, // Unused
+                                        0, // Unused
+                                        1, // Reboot autopilot
+                                        0, // Don't reboot companion computer
+                                        0, // Don't reboot componets
+                                        0, // For all components attached
+                                        0, // Unused
+                                        0, // Unused
+                                        0);// Unused
+      tie(error, ignore) = co_await send_message(msg);
+      if (error) break;
+      co_await wait_for_next_message(m_heartbeat_channel);
+      const mavlink_message_t* new_msg = mavlink_get_channel_buffer(m_heartbeat_channel);
+      spdlog::info("Sent reboot, got reply msgid: {}", new_msg->msgid);
+      if (new_msg->msgid != MAVLINK_MSG_ID_COMMAND_ACK) co_return make_unexpected(MavlinkErrc::NoCommandAck);
+    }
+    if (error) {
+      spdlog::error("Could not initialize ardupilot params, asio error: {}",
+                    error.message());
+      co_return make_unexpected(MavlinkErrc::FailedWrite);
+    }
   }
   auto set_target_position_local(std::span<float, 3> xyz)
     -> asio::awaitable<tResult<void>>
