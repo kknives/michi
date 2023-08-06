@@ -286,13 +286,13 @@ public:
                     error.message());
       co_return make_unexpected(MavlinkErrc::FailedWrite);
     }
-
-    co_await wait_for_next_message(m_heartbeat_channel);
-    const mavlink_message_t* new_msg =
-      mavlink_get_channel_buffer(m_heartbeat_channel);
-    spdlog::info("Got message id {}", new_msg->msgid);
-    if (new_msg->msgid != MAVLINK_MSG_ID_HEARTBEAT)
-      co_return make_unexpected(MavlinkErrc::NoHeartbeat);
-    spdlog::info("Got heartbeat");
+    spdlog::info("Sent heartbeat");
   }
 };
+
+awaitable<void> heartbeat_loop(MavlinkInterface& mi) {
+  while(true) {
+    auto [error, v] = co_await mi.heartbeat();
+    if (error) break;
+  }
+}
