@@ -6,6 +6,7 @@
 #include <asio/experimental/as_tuple.hpp>
 #include <asio/experimental/awaitable_operators.hpp>
 #include <asio/serial_port.hpp>
+#include <asio/this_coro.hpp>
 #include <asio/write.hpp>
 #include <chrono>
 #include <cmath>
@@ -14,6 +15,8 @@
 #include <memory>
 #include <span>
 #include <spdlog/spdlog.h>
+
+using namespace std::literals::chrono_literals;
 
 enum class MavlinkErrc
 {
@@ -290,9 +293,12 @@ public:
   }
 };
 
-awaitable<void> heartbeat_loop(MavlinkInterface& mi) {
+auto heartbeat_loop(MavlinkInterface& mi) -> asio::awaitable<tResult<void>> {
+  asio::steady_timer timer(co_await asio::this_coro::executor);
   while(true) {
-    auto [error, v] = co_await mi.heartbeat();
-    if (error) break;
+    timer.expires_at(steady_clock::now() + 1s);
+    co_await timer.async_wait(use_nothrow_awaitable);
+    auto result = co_await mi.heartbeat();
+    if (not result) co_return result;
   }
 }
