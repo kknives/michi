@@ -167,6 +167,19 @@ public:
     , m_start{ steady_clock::now() }
   {
   }
+  auto receive_message_loop() -> asio::awaitable<tResult<void>> {
+    std::vector<uint8_t> buffer(8);
+    while (true) {
+      auto [error, len] = co_await m_uart.async_read_some(asio::buffer(buffer), use_nothrow_awaitable);
+      if (error) co_return make_unexpected(error);
+      mavlink_message_t msg;
+      mavlink_status_t status;
+      for (int i = 0; i < len; i++) {
+        if (mavlink_parse_char(MAVLINK_COMM_0, buffer[i], &msg, &status)) break;
+      }
+      handle_message(&msg);
+    }
+  }
   auto init() -> asio::awaitable<tResult<void>>
   {
     using std::tie;
