@@ -126,6 +126,40 @@ class MavlinkInterface
   auto set_guided_mode() {}
   auto arm_autopilot() {}
   auto disarm_autopilot() {}
+  inline auto ignore_message() -> void {}
+  auto handle_message(const mavlink_message_t* msg) {
+    // spdlog::info("Got message with ID {}, system {}", msg->msgid, msg->sysid);
+    if (msg->sysid != 1) return; // Only handling messages from autopilot
+    switch (msg->msgid) {
+      case MAVLINK_MSG_ID_HEARTBEAT:
+        spdlog::trace("Got heartbeat");
+      break;
+      case MAVLINK_MSG_ID_SYS_STATUS:
+        // TODO: https://mavlink.io/en/messages/common.html#SYS_STATUS
+        spdlog::trace("Got system status");
+      break;
+      case MAVLINK_MSG_ID_LOCAL_POSITION_NED:
+        // TODO: https://mavlink.io/en/messages/common.html#LOCAL_POSITION_NED
+      spdlog::trace("Got local_position_ned");
+      break;
+      case MAVLINK_MSG_ID_RAW_IMU:
+      ignore_message();
+      break;
+      case MAVLINK_MSG_ID_ATTITUDE:
+      spdlog::trace("Got attitude");
+      break;
+      case MAVLINK_MSG_ID_GLOBAL_POSITION_INT:
+        spdlog::trace("Got Global Position");
+      break;
+      case MAVLINK_MSG_ID_COMMAND_ACK:
+      spdlog::info("Got ack");
+      break;
+
+      
+      default:
+      spdlog::trace("Unhandled message id {}", msg->msgid);
+    }
+  }
 
 public:
   MavlinkInterface(asio::serial_port&& sp)
