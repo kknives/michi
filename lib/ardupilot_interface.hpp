@@ -177,7 +177,7 @@ public:
     auto set_param_curried = std::bind_front(mavlink_msg_param_set_pack_chan,
                                              m_system_id,
                                              m_my_id,
-                                             m_heartbeat_channel,
+                                             MAVLINK_COMM_0,
                                              &msg,
                                              m_system_id,
                                              m_component_id);
@@ -237,11 +237,13 @@ public:
       tie(error, ignore) = co_await send_message(msg);
       if (error)
         break;
+      spdlog::info("Sent parameters");
 
+      for (int i = 0; i < 4; i++) {
       const uint16_t mav_cmd_preflight_reboot_shutdown = 246;
       mavlink_msg_command_int_pack_chan(m_system_id,
                                         m_my_id,
-                                        m_heartbeat_channel,
+                                        MAVLINK_COMM_0,
                                         &msg,
                                         m_system_id,
                                         m_component_id,
