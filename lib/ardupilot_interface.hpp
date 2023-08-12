@@ -15,6 +15,7 @@
 #include <memory>
 #include <span>
 #include <spdlog/spdlog.h>
+#include <spdlog/fmt/ranges.h>
 
 using namespace std::literals::chrono_literals;
 
@@ -74,6 +75,13 @@ constexpr auto use_nothrow_awaitable =
   asio::experimental::as_tuple(asio::use_awaitable);
 const float INVALID = 0.0f;
 
+struct ArdupilotState {
+  std::array<int32_t, 3> m_lat_lon_alt;
+  std::array<float, 3> m_vel;
+  std::array<float, 3> m_rpy;
+  std::array<float, 3> m_rpy_vel;
+};
+
 class MavlinkInterface
 {
   asio::serial_port m_uart;
@@ -92,6 +100,9 @@ class MavlinkInterface
   uint32_t USE_POSITION = 0x0DFC;
   uint32_t USE_VELOCITY = 0x0DE7;
   uint32_t USE_YAW = 0x09FF;
+
+  // The thing we want to get from AP
+  ArdupilotState m_ap_state;
 
   inline auto get_uptime() -> uint32_t
   {
@@ -123,6 +134,18 @@ class MavlinkInterface
       });
     }
   }
+  auto update_global_position(const mavlink_message_t* msg) -> void {
+    mavlink_global_position_int_cov_t pos;
+    mavlink_msg_global_position_int_cov_decode(msg, &pos);
+    m_ap_state.m_lat_lon_alt = {pos.lat, pos.lon, pos.alt};
+    m_ap_state.m_vel = {pos.vx, pos.vy, pos.vz};
+  }
+  auto update_attitude(const mavlink_message_t* msg) -> void {
+    mavlink_attitude_t att;
+    mavlink_msg_attitude_decode(msg, &att);
+    m_ap_state.m_rpy = {att.roll, att.pitch, att.yaw};
+    m_ap_state.m_rpy_vel = {att.rollspeed, att.pitchspeed, att.yawspeed};
+  }
   auto handle_message(const mavlink_message_t* msg)
   {
     // spdlog::info("Got message with ID {}, system {}", msg->msgid,
@@ -143,9 +166,11 @@ class MavlinkInterface
         break;
       case MAVLINK_MSG_ID_ATTITUDE:
         spdlog::trace("Got attitude");
+        update_attitude(msg);
         break;
-      case MAVLINK_MSG_ID_GLOBAL_POSITION_INT:
+      case MAVLINK_MSG_ID_GLOBAL_POSITION_INT_COV:
         spdlog::trace("Got Global Position");
+        update_global_position(msg);
         break;
       case MAVLINK_MSG_ID_COMMAND_ACK:
         spdlog::info("Got ack");
@@ -159,6 +184,8 @@ class MavlinkInterface
       default:
         spdlog::trace("Unhandled message id {}", msg->msgid);
     }
+    spdlog::info("State updated: {} {} {} {}", m_ap_state.m_lat_lon_alt, 
+    m_ap_state.m_vel, m_ap_state.m_rpy, m_ap_state.m_rpy_vel);
   }
 
 public:
