@@ -171,23 +171,27 @@ public:
     , m_start{ steady_clock::now() }
   {
   }
-  auto receive_message_loop() -> asio::awaitable<tResult<void>> {
+  auto receive_message_loop() -> asio::awaitable<tResult<void>>
+  {
     std::vector<uint8_t> buffer(8);
     while (true) {
-      auto [error, len] = co_await m_uart.async_read_some(asio::buffer(buffer), use_nothrow_awaitable);
-      if (error) co_return make_unexpected(error);
+      auto [error, len] = co_await m_uart.async_read_some(
+        asio::buffer(buffer), use_nothrow_awaitable);
+      if (error)
+        co_return make_unexpected(error);
       mavlink_message_t msg;
       mavlink_status_t status;
       for (int i = 0; i < len; i++) {
-        if (mavlink_parse_char(MAVLINK_COMM_0, buffer[i], &msg, &status)) break;
+        if (mavlink_parse_char(MAVLINK_COMM_0, buffer[i], &msg, &status))
+          break;
       }
       handle_message(&msg);
     }
   }
   auto init() -> asio::awaitable<tResult<void>>
   {
-    using std::tie;
     using std::ignore;
+    using std::tie;
 
     std::error_code error;
     mavlink_message_t msg;
@@ -257,30 +261,29 @@ public:
       spdlog::info("Sent parameters");
 
       for (int i = 0; i < 4; i++) {
-      const uint16_t mav_cmd_preflight_reboot_shutdown = 246;
-      mavlink_msg_command_int_pack_chan(m_system_id,
-                                        m_my_id,
-                                        MAVLINK_COMM_0,
-                                        &msg,
-                                        m_system_id,
-                                        m_component_id,
-                                        MAV_FRAME_LOCAL_NED,
-                                        mav_cmd_preflight_reboot_shutdown,
-                                        0, // Unused
-                                        0, // Unused
-                                        1, // Reboot autopilot
-                                        0, // Don't reboot companion computer
-                                        0, // Don't reboot componets
-                                        0, // For all components attached
-                                        0, // Unused
-                                        0, // Unused
-                                        0);// Unused
-      tie(error, ignore) = co_await send_message(msg);
-      if (error) break;
-      co_await wait_for_next_message(m_heartbeat_channel);
-      const mavlink_message_t* new_msg = mavlink_get_channel_buffer(m_heartbeat_channel);
-      spdlog::info("Sent reboot, got reply msgid: {}", new_msg->msgid);
-      if (new_msg->msgid != MAVLINK_MSG_ID_COMMAND_ACK) co_return make_unexpected(MavlinkErrc::NoCommandAck);
+        const uint16_t mav_cmd_preflight_reboot_shutdown = 246;
+        mavlink_msg_command_int_pack_chan(m_system_id,
+                                          m_my_id,
+                                          MAVLINK_COMM_0,
+                                          &msg,
+                                          m_system_id,
+                                          m_component_id,
+                                          MAV_FRAME_LOCAL_NED,
+                                          mav_cmd_preflight_reboot_shutdown,
+                                          0,  // Unused
+                                          0,  // Unused
+                                          1,  // Reboot autopilot
+                                          0,  // Don't reboot companion computer
+                                          0,  // Don't reboot componets
+                                          0,  // For all components attached
+                                          0,  // Unused
+                                          0,  // Unused
+                                          0); // Unused
+        tie(error, ignore) = co_await send_message(msg);
+        if (error)
+          break;
+        spdlog::info("Sent reboot");
+      }
     }
     if (error) {
       spdlog::error("Could not initialize ardupilot params, asio error: {}",
@@ -346,12 +349,15 @@ public:
   }
 };
 
-auto heartbeat_loop(MavlinkInterface& mi) -> asio::awaitable<tResult<void>> {
+auto
+heartbeat_loop(MavlinkInterface& mi) -> asio::awaitable<tResult<void>>
+{
   asio::steady_timer timer(co_await asio::this_coro::executor);
-  while(true) {
+  while (true) {
     timer.expires_at(steady_clock::now() + 1s);
     co_await timer.async_wait(use_nothrow_awaitable);
     auto result = co_await mi.heartbeat();
-    if (not result) co_return result;
+    if (not result)
+      co_return result;
   }
 }
