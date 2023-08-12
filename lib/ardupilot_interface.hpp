@@ -39,7 +39,7 @@ struct MavlinkErrCategory : std::error_category
       case MavlinkErrc::NoHeartbeat:
         return "no heartbeat received from autopilot";
       case MavlinkErrc::NoCommandAck:
-      return "no ack received after command";
+        return "no ack received after command";
       case MavlinkErrc::FailedWrite:
         return "could not write, asio error";
       case MavlinkErrc::FailedRead:
@@ -127,37 +127,41 @@ class MavlinkInterface
   auto arm_autopilot() {}
   auto disarm_autopilot() {}
   inline auto ignore_message() -> void {}
-  auto handle_message(const mavlink_message_t* msg) {
-    // spdlog::info("Got message with ID {}, system {}", msg->msgid, msg->sysid);
-    if (msg->sysid != 1) return; // Only handling messages from autopilot
+  auto handle_message(const mavlink_message_t* msg)
+  {
+    // spdlog::info("Got message with ID {}, system {}", msg->msgid,
+    // msg->sysid);
+    if (msg->sysid != 1)
+      return; // Only handling messages from autopilot
     switch (msg->msgid) {
       case MAVLINK_MSG_ID_HEARTBEAT:
         spdlog::trace("Got heartbeat");
-      break;
+        break;
       case MAVLINK_MSG_ID_SYS_STATUS:
         // TODO: https://mavlink.io/en/messages/common.html#SYS_STATUS
         spdlog::trace("Got system status");
-      break;
+        break;
       case MAVLINK_MSG_ID_LOCAL_POSITION_NED:
         // TODO: https://mavlink.io/en/messages/common.html#LOCAL_POSITION_NED
-      spdlog::trace("Got local_position_ned");
-      break;
-      case MAVLINK_MSG_ID_RAW_IMU:
-      ignore_message();
-      break;
+        spdlog::trace("Got local_position_ned");
+        break;
       case MAVLINK_MSG_ID_ATTITUDE:
-      spdlog::trace("Got attitude");
-      break;
+        spdlog::trace("Got attitude");
+        break;
       case MAVLINK_MSG_ID_GLOBAL_POSITION_INT:
         spdlog::trace("Got Global Position");
-      break;
+        break;
       case MAVLINK_MSG_ID_COMMAND_ACK:
-      spdlog::info("Got ack");
-      break;
-
-      
+        spdlog::info("Got ack");
+        break;
+      case MAVLINK_MSG_ID_RAW_IMU:
+      case MAVLINK_MSG_ID_RC_CHANNELS_SCALED:
+      case MAVLINK_MSG_ID_SCALED_IMU3:
+      case MAVLINK_MSG_ID_SCALED_IMU2:
+        spdlog::trace("Ignored message id {}", msg->msgid);
+        break;
       default:
-      spdlog::trace("Unhandled message id {}", msg->msgid);
+        spdlog::trace("Unhandled message id {}", msg->msgid);
     }
   }
 
