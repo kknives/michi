@@ -123,10 +123,6 @@ class MavlinkInterface
       });
     }
   }
-  auto set_guided_mode() {}
-  auto arm_autopilot() {}
-  auto disarm_autopilot() {}
-  inline auto ignore_message() -> void {}
   auto handle_message(const mavlink_message_t* msg)
   {
     // spdlog::info("Got message with ID {}, system {}", msg->msgid,
@@ -324,9 +320,6 @@ public:
       co_return make_unexpected(MavlinkErrc::FailedWrite);
     }
   }
-  auto set_target_velocity_local() {}
-  auto set_target_heading_local() {}
-  auto get_position_global() {}
   auto heartbeat() -> asio::awaitable<tResult<void>>
   {
     mavlink_message_t msg;
