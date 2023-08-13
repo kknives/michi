@@ -87,10 +87,6 @@ class MavlinkInterface
   asio::serial_port m_uart;
   time_point<steady_clock> m_start;
 
-  uint8_t m_heartbeat_channel = 0;
-  uint8_t m_targets_channel = 1;
-  uint8_t m_positions_channel = 2;
-
   // Guidance computer shares the system id with the autopilot => same system
   uint8_t m_system_id = 1;
   uint8_t m_component_id = 1;
@@ -278,7 +274,7 @@ public:
 
       set_param_curried("SR0_ADSB", 0, MAV_PARAM_TYPE_INT16);
       // mavlink_msg_param_set_pack_chan(m_system_id, m_my_id,
-      // m_heartbeat_channel, &msg, m_system_id, m_component_id, "SR0_ADSB", 0,
+      // m_channel, &msg, m_system_id, m_component_id, "SR0_ADSB", 0,
       // MAV_PARAM_TYPE_INT16);
       tie(error, ignore) = co_await send_message(msg);
       if (error)
@@ -355,7 +351,7 @@ public:
     mavlink_msg_set_position_target_local_ned_pack_chan(
       m_system_id,
       m_my_id,
-      m_targets_channel,
+      m_channel,
       &msg,
       get_uptime(),
       m_system_id,
@@ -414,7 +410,7 @@ public:
     mavlink_message_t msg;
     mavlink_msg_heartbeat_pack_chan(m_system_id,
                                     m_my_id,
-                                    m_heartbeat_channel,
+                                    m_channel,
                                     &msg,
                                     MAV_TYPE_ONBOARD_CONTROLLER,
                                     MAV_AUTOPILOT_INVALID,
