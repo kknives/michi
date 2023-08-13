@@ -101,6 +101,8 @@ class MavlinkInterface
   uint32_t USE_VELOCITY = 0x0DE7;
   uint32_t USE_YAW = 0x09FF;
 
+  uint8_t m_channel = MAVLINK_COMM_0;
+
   // The thing we want to get from AP
   ArdupilotState m_ap_state;
 
@@ -314,6 +316,38 @@ public:
       co_return make_unexpected(MavlinkErrc::FailedWrite);
     }
   }
+  auto set_target_velocity(std::span<float, 3> velxyz)
+    -> asio::awaitable<tResult<void>>
+  {
+    mavlink_message_t msg;
+    mavlink_msg_set_position_target_local_ned_pack_chan(
+      m_system_id,
+      m_my_id,
+      m_channel,
+      &msg,
+      get_uptime(),
+      m_system_id,
+      m_component_id,
+      MAV_FRAME_BODY_OFFSET_NED,
+      USE_VELOCITY,
+      INVALID,
+      INVALID,
+      INVALID,
+      velxyz[0],
+      velxyz[1],
+      velxyz[2],
+      INVALID,
+      INVALID,
+      INVALID,
+      INVALID,
+      INVALID);
+    auto [error, written] = co_await send_message(msg);
+    if (error) {
+      spdlog::error("Could not send set_target, asio error: {}\n",
+                    error.message());
+      co_return make_unexpected(MavlinkErrc::FailedWrite);
+    }
+  }
   auto set_target_position_local(std::span<float, 3> xyz)
     -> asio::awaitable<tResult<void>>
   {
@@ -345,6 +379,34 @@ public:
       spdlog::error("Could not send set_target, asio error: {}",
                     error.message());
       co_return make_unexpected(MavlinkErrc::FailedWrite);
+    }
+  }
+  auto set_target_attitude(std::span<float, 4> rotation_quaternion,
+                           float yaw_rate,
+                           float thrust) -> asio::awaitable<tResult<void>>
+  {
+    mavlink_message_t msg;
+    const int8_t USE_YAWRATE_ATTITUDE_THRUST = 0x23;
+    float unused_thrust_body_field[3] = { INVALID, INVALID, INVALID };
+    mavlink_msg_set_attitude_target_pack_chan(m_system_id,
+                                              m_my_id,
+                                              m_channel,
+                                              &msg,
+                                              get_uptime(),
+                                              m_system_id,
+                                              m_component_id,
+                                              USE_YAWRATE_ATTITUDE_THRUST,
+                                              rotation_quaternion.data(),
+                                              INVALID,
+                                              INVALID,
+                                              yaw_rate,
+                                              thrust,
+                                              unused_thrust_body_field);
+    auto [error, written] = co_await send_message(msg);
+    if (error) {
+      spdlog::error("Could not send set_attitude, asio error: {}\n",
+                    error.message());
+      co_return make_unexpected(MavlinkErrc::FailedRead);
     }
   }
   auto heartbeat() -> asio::awaitable<tResult<void>>
