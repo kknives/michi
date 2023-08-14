@@ -203,7 +203,7 @@ public:
       mavlink_message_t msg;
       mavlink_status_t status;
       for (int i = 0; i < len; i++) {
-        if (mavlink_parse_char(MAVLINK_COMM_0, buffer[i], &msg, &status))
+        if (mavlink_parse_char(m_channel, buffer[i], &msg, &status))
           break;
       }
       handle_message(&msg);
@@ -219,7 +219,7 @@ public:
     auto set_param_curried = std::bind_front(mavlink_msg_param_set_pack_chan,
                                              m_system_id,
                                              m_my_id,
-                                             MAVLINK_COMM_0,
+                                             m_channel,
                                              &msg,
                                              m_system_id,
                                              m_component_id);
@@ -285,7 +285,7 @@ public:
         const uint16_t mav_cmd_preflight_reboot_shutdown = 246;
         mavlink_msg_command_int_pack_chan(m_system_id,
                                           m_my_id,
-                                          MAVLINK_COMM_0,
+                                          m_channel,
                                           &msg,
                                           m_system_id,
                                           m_component_id,
