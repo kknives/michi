@@ -114,24 +114,6 @@ class MavlinkInterface
     return asio::async_write(
       m_uart, asio::buffer(buffer, len), use_nothrow_awaitable);
   }
-  auto wait_for_next_message(uint8_t channel) -> asio::awaitable<tResult<void>>
-  {
-    mavlink_status_t* status = mavlink_get_channel_status(channel);
-    auto msgs_before = status->msg_received;
-
-    std::vector<uint8_t> buffer(8);
-    while (status->msg_received == msgs_before) {
-      auto [error, len] = co_await m_uart.async_read_some(
-        asio::buffer(buffer), use_nothrow_awaitable);
-      if (error)
-        co_return make_unexpected(error);
-
-      std::for_each_n(cbegin(buffer), len, [channel, status](const uint8_t c) {
-        mavlink_message_t msg;
-        mavlink_parse_char(channel, c, &msg, status);
-      });
-    }
-  }
   auto update_global_position(const mavlink_message_t* msg) -> void {
     mavlink_global_position_int_cov_t pos;
     mavlink_msg_global_position_int_cov_decode(msg, &pos);
