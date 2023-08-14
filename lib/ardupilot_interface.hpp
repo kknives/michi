@@ -393,6 +393,33 @@ public:
       co_return make_unexpected(MavlinkErrc::FailedRead);
     }
   }
+  auto set_obstacle_distance(std::span<uint16_t, 72> distances,
+                             float increment,
+                             float min_distance,
+                             float max_distance,
+                             float offset) -> void
+  {
+    mavlink_message_t msg;
+    mavlink_msg_obstacle_distance_pack_chan(m_system_id,
+                                            m_my_id,
+                                            m_channel,
+                                            &msg,
+                                            get_uptime(),
+                                            MAV_DISTANCE_SENSOR_LASER,
+                                            distances.data(),
+                                            INVALID,
+                                            min_distance,
+                                            max_distance,
+                                            increment,
+                                            offset,
+                                            MAV_FRAME_BODY_FRD);
+    auto [error, written] = co_await send_message(msg);
+    if (error) {
+      spdlog::erro("Could not send obstacle_distance, asio error: {}\n",
+                   error.message());
+      co_return make_unexpected(MavlinkErrc::FailedWrite);
+    }
+  }
   auto heartbeat() -> asio::awaitable<tResult<void>>
   {
     mavlink_message_t msg;
