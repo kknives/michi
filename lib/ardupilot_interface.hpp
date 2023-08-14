@@ -312,6 +312,12 @@ public:
       co_return make_unexpected(MavlinkErrc::FailedWrite);
     }
   }
+  auto global_position() -> std::span<int32_t, 3> const {
+    return std::span(m_ap_state.m_lat_lon_alt);
+  }
+  auto linear_velocity() -> std::span<float, 3> const {
+    return std::span(m_ap_state.m_vel);
+  }
   auto set_target_velocity(std::span<float, 3> velxyz)
     -> asio::awaitable<tResult<void>>
   {
