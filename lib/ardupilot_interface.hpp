@@ -390,7 +390,7 @@ public:
     if (error) {
       spdlog::error("Could not send set_attitude, asio error: {}\n",
                     error.message());
-      co_return make_unexpected(MavlinkErrc::FailedRead);
+      co_return make_unexpected(MavlinkErrc::FailedWrite);
     }
   }
   auto set_obstacle_distance(std::span<uint16_t, 72> distances,
