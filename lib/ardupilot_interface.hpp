@@ -397,7 +397,7 @@ public:
                              float increment,
                              float min_distance,
                              float max_distance,
-                             float offset) -> void
+                             float offset) -> asio::awaitable<tResult<void>>
   {
     mavlink_message_t msg;
     mavlink_msg_obstacle_distance_pack_chan(m_system_id,
@@ -415,7 +415,7 @@ public:
                                             MAV_FRAME_BODY_FRD);
     auto [error, written] = co_await send_message(msg);
     if (error) {
-      spdlog::erro("Could not send obstacle_distance, asio error: {}\n",
+      spdlog::error("Could not send obstacle_distance, asio error: {}\n",
                    error.message());
       co_return make_unexpected(MavlinkErrc::FailedWrite);
     }
