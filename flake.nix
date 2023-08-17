@@ -64,6 +64,7 @@
               gtest.dev
               onnxruntime.dev
               packages.mavlink_c
+              argparse
             ];
             configurePhase = ''
               cmake -S . -B build

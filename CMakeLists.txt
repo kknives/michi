@@ -56,6 +56,12 @@ add_executable(test_ardupilot_interface tests/test_ardupilot_interface.cpp)
 add_dependencies(test_ardupilot_interface Michi)
 target_link_libraries(test_ardupilot_interface PRIVATE Michi ${GTEST_LDFLAGS} -fsanitize=address)
 
+find_package(argparse REQUIRED)
+add_executable(arar_planner bin/arrow_ardupilot_planner.cpp)
+add_dependencies(arar_planner Michi)
+target_include_directories(arar_planner PRIVATE argparse)
+target_link_libraries(arar_planner PRIVATE Michi -fsanitize=address)
+
 option(BUILD_MOBILENET_SCRIPT "Build run_mobilenet_arrow.cpp for running models" OFF)
 if (BUILD_MOBILENET_SCRIPT)
     add_executable(run_mobilenet_arrow bin/run_mobilenet_arrow.cpp)
