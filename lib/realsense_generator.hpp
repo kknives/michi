@@ -84,7 +84,7 @@ auto setup_device() noexcept -> tResult<std::tuple<rs2::pipeline, float, float>>
 }
 
 class RealsenseDevice {
-  auto async_update(asio::io_context& io_ctx) -> asio::awaitable<void> {
+  auto async_update(const asio::any_io_executor& io_ctx) -> asio::awaitable<void> {
     // FIXME: Sync to frame time using an asio::timer instead of sleeping
     while (not pipe.poll_for_frames(&frames)) {
       co_await asio::this_coro::executor;
@@ -104,11 +104,11 @@ class RealsenseDevice {
   
   public:
   RealsenseDevice(rs2::pipeline& pipe) : pipe{pipe} {}
-  auto async_get_rgb_frame(asio::io_context& io_ctx) -> asio::awaitable<rs2::frame> {
+  auto async_get_rgb_frame(const asio::any_io_executor& io_ctx) -> asio::awaitable<rs2::frame> {
     if (not rgb_frame.has_value()) co_await async_update(io_ctx);
     co_return *std::exchange(rgb_frame, std::nullopt);
   }
-  auto async_get_points(asio::io_context& io_ctx) -> asio::awaitable<rs2::points>{
+  auto async_get_points(const asio::any_io_executor& io_ctx) -> asio::awaitable<rs2::points>{
     if (not points.has_value()) co_await async_update(io_ctx);
     co_return *std::exchange(points, std::nullopt);
   }

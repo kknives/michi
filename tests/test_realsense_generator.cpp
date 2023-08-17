@@ -38,11 +38,12 @@ int main(int argc, char** argv) {
 
 TEST(RealsenseGeneratorTest, ReturnNonTrivialPointAndFrame) {
   asio::io_context io_ctx(2);
+  asio::any_io_executor io_exec = io_ctx.get_executor();
   auto [pipe, fovh, fovv] = setup_device().or_else([] (std::error_code e){ FAIL() << e.message(); }).value();
   auto rs_dev = RealsenseDevice(pipe);
 
   for (int i = 0; i < 5; i++) {
-    asio::co_spawn(io_ctx, rs_dev.async_get_points(io_ctx),
+    asio::co_spawn(io_ctx, rs_dev.async_get_points(io_exec),
       [](std::exception_ptr p, rs2::points points) {
         if (p) {
           try { std::rethrow_exception(p); }
@@ -55,7 +56,7 @@ TEST(RealsenseGeneratorTest, ReturnNonTrivialPointAndFrame) {
         spdlog::info("Got points of size {}", points.size());
     });
 
-    asio::co_spawn(io_ctx, rs_dev.async_get_rgb_frame(io_ctx),
+    asio::co_spawn(io_ctx, rs_dev.async_get_rgb_frame(io_exec),
       [](std::exception_ptr p, rs2::frame f) {
         if (p) {
           try { std::rethrow_exception(p); }
