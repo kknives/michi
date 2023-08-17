@@ -85,6 +85,7 @@ auto setup_device() noexcept -> tResult<std::tuple<rs2::pipeline, float, float>>
 
 class RealsenseDevice {
   auto async_update(asio::io_context& io_ctx) -> asio::awaitable<void> {
+    // FIXME: Sync to frame time using an asio::timer instead of sleeping
     while (not pipe.poll_for_frames(&frames)) {
       co_await asio::this_coro::executor;
       std::this_thread::sleep_for(10ms);
