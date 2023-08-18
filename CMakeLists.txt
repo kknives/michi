@@ -22,7 +22,7 @@ pkg_check_modules(Asio asio)
 add_library(Michi lib/realsense_generator.cpp lib/mobilenet_arrow.cpp lib/ardupilot_interface.cpp)
 target_compile_options(Michi PUBLIC -fcoroutines)
 target_include_directories(Michi PUBLIC lib ${Asio_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS} ${realsense_INCLUDE_DIR}
-    PRIVATE ${PCL_INCLUDE_DIRS} ${MAVLink_INCLUDE_DIRS})
+    ${PCL_INCLUDE_DIRS} PRIVATE ${MAVLink_INCLUDE_DIRS})
 target_link_libraries(Michi PRIVATE ${PCL_LIBRARIES} ${OpenCV_LIBS}
     libonnxruntime.so
     PUBLIC ${realsense2_LIBRARY} Eigen3::Eigen spdlog::spdlog)
