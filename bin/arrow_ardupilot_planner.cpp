@@ -31,35 +31,53 @@ struct Parameters {
 
 using fmt::print;
 
-auto locate_obstacles(RealsenseDevice& rs_dev) -> asio::awaitable<void> {
+auto locate_obstacles(RealsenseDevice& rs_dev, MavlinkInterface& mi) -> asio::awaitable<void> {
   asio::steady_timer timer(co_await asio::this_coro::executor);
+  
   for (;;) {
     auto points = co_await rs_dev.async_get_points(co_await asio::this_coro::executor);
     // TODO: Bring in the method from rs_pcl_color and use MAVLinkInterface
+  }
+}
+
+auto mission() -> asio::awaitable<void> {
+  auto this_exec = co_await asio::this_coro::executor;
+
+  auto [rs_pipe, fovh, fovv] = *setup_device().or_else([] (std::error_code e) {
+    spdlog::error("Couldn't setup realsense device: {}", e.message());
+  });
+  auto rs_dev = RealsenseDevice(rs_pipe);
+  auto classifier = ClassificationModel(MobilenetArrowClassifier("lib/saved_model_checkpoint4.onnx"));
+  auto mi = MavlinkInterface(asio::serial_port(this_exec, "/dev/pts/13"));
+
+  bool done = false;
+  // std::optional<Target> current_target;
+  asio::co_spawn(this_exec, locate_obstacles(rs_dev, mi), asio::detached);
+  asio::co_spawn(this_exec, heartbeat_loop(mi), asio::detached);
+  asio::co_spawn(this_exec, mi.receive_message_loop(), asio::detached);
+
+  // Mission Loop
+  for (;;) {
+    auto rgb_frame = co_await rs_dev.async_get_rgb_frame(this_exec);
+    cv::Mat image(cv::Size(640, 480), CV_8UC3, (void*)rgb_frame.get_data(), cv::Mat::AUTO_STEP);
+    auto object_found = classify(classifier, image);
+
+    if (object_found == 1 or object_found == 2) {
+      // Arrow found
+    }
+    // Accept images as input
+    // Check if there's an arrow
   }
 }
 int main() {
   print("{}\n",banner);
   spdlog::info("Starting ArrowArdupilotPlanner version {}", "version_string");
 
+  // std::set_terminate(stacktrace_terminate);
   asio::io_context io_ctx;
   spdlog::trace("asio io_context setup");
 
-  auto [rs_pipe, fovh, fovv] = *setup_device().or_else([] (std::error_code e) {
-    spdlog::error("Couldn't setup realsense device: {}", e.message());
-  });
-  auto rs_dev = RealsenseDevice(rs_pipe);
-  asio::co_spawn(io_ctx, locate_obstacles(rs_dev), asio::detached);
-
-  // Mission Loop
-  for (;;) {
-    // Accept images as input
-    // Check if there's an arrow
-  }
-  
-  // asio::co_spawn(io_ctx, rs_dev)
-  // spdlog::trace("Spawning realsense co-routine");
-  // asio::co_spawn(io_ctx, rs_dev.)
+  asio::co_spawn(io_ctx, mission(), asio::detached);
 
   spdlog::trace("running asio io_context");
   io_ctx.run();
