@@ -35,14 +35,6 @@ struct Target {
 struct ArrowState {
 };
 
-struct Parameters {
-  float arrow_min_approach_mtr;
-  float cone_min_approach_mtr;
-  float arrow_hold_ms;  
-  float arrow_careful_vel_ms;
-  float arrow_approach_vel_ms;
-};
-
 using fmt::print;
 using tPclPtr = pcl::PointCloud<pcl::PointXYZ>::Ptr;
 
