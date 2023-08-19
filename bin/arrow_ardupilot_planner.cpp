@@ -66,12 +66,12 @@ auto mission() -> asio::awaitable<void> {
   asio::co_spawn(this_exec, heartbeat_loop(mi), asio::detached);
   asio::co_spawn(this_exec, mi.receive_message_loop(), asio::detached);
 
-  std::optional<Target> current_target;
-  std::vector<Target> visited_targets;
+  Target current_target{.type=Target::Type::HEADING, .heading=0.0f};
+  std::set<Target> visited_targets;
 
   // Mission Loop
   for (;;) {
-    if (not current_target) {
+    if (current_target.type == Target::Type::HEADING) {
       // Get the current frame and process it for potential targets
       auto rgb_frame = co_await rs_dev.async_get_rgb_frame(this_exec);
       cv::Mat image(cv::Size(640, 480), CV_8UC3, (void*)rgb_frame.get_data(), cv::Mat::AUTO_STEP);
@@ -79,6 +79,7 @@ auto mission() -> asio::awaitable<void> {
 
       if (object_found == 1 or object_found == 2) {
         // Arrow found
+        current_target = Target{.type=Target::Type::ARROW_SIGHTED};
       }
 
       // If a target is found, check for duplicates against visited_targets
@@ -91,13 +92,13 @@ auto mission() -> asio::awaitable<void> {
     }
 
     // There's already a target, check target
-    if (current_target->type == Target::Type::ARROW_SIGHTED or current_target->type == Target::Type::CONE_SIGHTED) {
+    if (current_target.type == Target::Type::ARROW_SIGHTED or current_target.type == Target::Type::CONE_SIGHTED) {
       // Check if realsense depth can give a lock on the location
       // Lock the target by setting a target on AP
       // If not, set the velocity low, match heading and carefully approach target
       continue;
     }
-    if (current_target->type == Target::Type::ARROW_LOCKED or current_target->type == Target::Type::CONE_LOCKED) {
+    if (current_target.type == Target::Type::ARROW_LOCKED or current_target.type == Target::Type::CONE_LOCKED) {
       // Check if the target approach, reduce velocity if needed,
       // Get the distance to target, cutoff appraoch and wait if needed
       // Don't continue, await the wait timer instead
