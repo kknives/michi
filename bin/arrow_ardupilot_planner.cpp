@@ -28,9 +28,11 @@ struct Target {
     CONE_LOCKED,
     ARROW_SIGHTED,
     CONE_SIGHTED,
+    HEADING,
   };
   Type type;
   std::optional<tLocation> location;
+  std::optional<float> heading;
 };
 struct ArrowState {
 };
