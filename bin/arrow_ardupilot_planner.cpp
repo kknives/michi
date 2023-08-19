@@ -1,7 +1,10 @@
+#include <argparse/argparse.hpp>
+
+#include "ardupilot_interface.hpp"
+#include <opencv4/opencv2/opencv.hpp>
 #include "realsense_generator.hpp"
 #include "classification_model.hpp"
 #include "mobilenet_arrow.hpp"
-// #include "arrow_global_planner.hpp"
 #include <asio/detached.hpp>
 #include <asio/this_coro.hpp>
 #include <spdlog/spdlog.h>
@@ -30,6 +33,9 @@ struct Parameters {
 };
 
 using fmt::print;
+using tPclPtr = pcl::PointCloud<pcl::PointXYZ>::Ptr;
+
+static argparse::ArgumentParser args("ArrowArdupilotPlanner");
 
 auto locate_obstacles(RealsenseDevice& rs_dev, MavlinkInterface& mi) -> asio::awaitable<void> {
   asio::steady_timer timer(co_await asio::this_coro::executor);
@@ -69,11 +75,39 @@ auto mission() -> asio::awaitable<void> {
     // Check if there's an arrow
   }
 }
-int main() {
+
+extern "C" void dump_stacktrace(uintptr_t const);
+void stacktrace_terminate() {
+  std::cout << "too baddd" << '\n';
+  dump_stacktrace(reinterpret_cast<uintptr_t>(mission));
+  std::abort();
+}
+int main(int argc, char* argv[]) {
+  std::set_terminate(stacktrace_terminate);
+  args.add_argument("ardupilot").help("Serial port (eg. /dev/ttyUSB0) connected to Pixhawk's TELEMETRY2");
+  args.add_argument("-m", "--model").default_value(std::string("lib/saved_model_checkpoint4.onnx")).help("model to use for arrow classification");
+
+  int log_verbosity = 0;
+  args.add_argument("-V", "--verbose")
+  .action([&](const auto &) {++log_verbosity;})
+  .append()
+  .default_value(false)
+  .implicit_value(true)
+  .nargs(0);
+  
+  try {
+    args.parse_args(argc, argv);
+  }
+  catch (const std::runtime_error& err) {
+    std::cerr << err.what() << '\n';
+    std::cerr << args;
+    return 1;
+  }
+
+  spdlog::set_level(spdlog::level::debug);
   print("{}\n",banner);
   spdlog::info("Starting ArrowArdupilotPlanner version {}", "version_string");
 
-  // std::set_terminate(stacktrace_terminate);
   asio::io_context io_ctx;
   spdlog::trace("asio io_context setup");
 
