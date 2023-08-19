@@ -62,7 +62,8 @@ auto mission() -> asio::awaitable<void> {
   auto mi = MavlinkInterface(asio::serial_port(this_exec, args.get("ardupilot")));
 
   bool done = false;
-  asio::co_spawn(this_exec, locate_obstacles(rs_dev, mi), asio::detached);
+  if (not args.get<bool>("--no-avoid"))
+    asio::co_spawn(this_exec, locate_obstacles(rs_dev, mi), asio::detached);
   asio::co_spawn(this_exec, heartbeat_loop(mi), asio::detached);
   asio::co_spawn(this_exec, mi.receive_message_loop(), asio::detached);
 
@@ -117,6 +118,7 @@ int main(int argc, char* argv[]) {
   std::set_terminate(stacktrace_terminate);
   args.add_argument("ardupilot").help("Serial port (eg. /dev/ttyUSB0) connected to Pixhawk's TELEMETRY2");
   args.add_argument("-m", "--model").default_value(std::string("lib/saved_model_checkpoint4.onnx")).help("model to use for arrow classification");
+  args.add_argument("--no-avoid").default_value(false).implicit_value(true).help("Disable obstacle avoidance behaviour");
 
   int log_verbosity = 0;
   args.add_argument("-V", "--verbose")
