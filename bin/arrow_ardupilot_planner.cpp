@@ -195,6 +195,7 @@ auto mission() -> asio::awaitable<void> {
   asio::co_spawn(this_exec, heartbeat_loop(mi), asio::detached);
   asio::co_spawn(this_exec, mi.receive_message_loop(), asio::detached);
 
+  asio::steady_timer timer(this_exec);
   Target current_target{.type=Target::Type::HEADING, .heading=0.0f};
   std::set<Target> visited_targets;
 
@@ -216,6 +217,14 @@ auto mission() -> asio::awaitable<void> {
         auto lock_distance = get_depth_lock(depth_frame, crop_rectangle);
         if (lock_distance) {
           // Set AP Target with distance
+          current_target.type = Target::Type::ARROW_LOCKED;
+
+          std::array<float, 3> forward_right_down{*lock_distance, 0.0f, 0.0f};
+          std::array<float, 3> ref_arrow;
+          auto current_position = mi.local_position();
+          std::transform(begin(forward_right_down), end(forward_right_down), begin(current_position), begin(ref_arrow), std::plus<>{});
+          current_target.location.emplace(ref_arrow);
+
           co_await mi.set_target_position_local(std::span(forward_right_down));
           continue;
         }
@@ -271,6 +280,18 @@ auto mission() -> asio::awaitable<void> {
       // Get the distance to target, cutoff appraoch and wait if needed
       // Don't continue, await the wait timer instead
       // Turn and set heading, clear current_target, push it to visited_targets
+      auto current_position = mi.local_position();
+      float approach_distance = std::inner_product(begin(current_position), end(current_position), begin(*current_target.location), std::plus<>{}, [](const float& a, const float& b) { return (a-b)*(a-b); });
+      if (approach_distance < 10) {
+        std::array<float, 3> stop_vel {0.0f, 0.0f, 0.0f};
+        co_await mi.set_target_velocity(std::span(stop_vel));
+        timer.expires_after(10s);
+        co_await timer.async_wait(use_nothrow_awaitable);
+        // Change heading
+        visited_targets.emplace(current_target);
+        current_target = Target{.type=Target::Type::HEADING};
+        continue;
+      }
     }
   }
 }
