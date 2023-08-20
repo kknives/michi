@@ -88,21 +88,11 @@ auto setup_device() noexcept -> tResult<std::tuple<rs2::pipeline, float, float>>
 class RealsenseDevice {
   // TODO: remove io_ctx
   auto async_update(const asio::any_io_executor& io_ctx) -> asio::awaitable<void> {
-    // FIXME: Sync to frame time using an asio::timer instead of sleeping
+    asio::steady_timer timer(co_await asio::this_coro::executor);
     while (not pipe.poll_for_frames(&frames)) {
-      co_await asio::this_coro::executor;
-      std::this_thread::sleep_for(10ms);
+      timer.expires_after(34ms);
+      co_await timer.async_wait(use_nothrow_awaitable);
     }
-
-    rs2::frame depth = frames.first(RS2_STREAM_DEPTH);
-    // Decimation > Spatial > Temporal > Threshold
-    depth = dec_filter.process(depth);
-    depth = temp_filter.process(depth);
-
-    points.emplace(pc.calculate(depth));
-
-    rs2::frame color = frames.first(RS2_STREAM_COLOR);
-    rgb_frame.emplace(color);
   }
   
   public:
