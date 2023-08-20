@@ -75,7 +75,7 @@ auto mission() -> asio::awaitable<void> {
     if (current_target.type == Target::Type::HEADING) {
       // Get the current frame and process it for potential targets
       auto rgb_frame = co_await rs_dev.async_get_rgb_frame(this_exec);
-      // If there's ever a segfault, this maybe to blame, removing const from const void*
+      // If there's a segfault, this maybe to blame, removing const from const void*
       cv::Mat image(cv::Size(640, 480), CV_8UC3, const_cast<void*>(rgb_frame.get_data()), cv::Mat::AUTO_STEP);
       auto object_found = classify(classifier, image);
 
