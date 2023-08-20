@@ -75,12 +75,32 @@ auto mission() -> asio::awaitable<void> {
     if (current_target.type == Target::Type::HEADING) {
       // Get the current frame and process it for potential targets
       auto rgb_frame = co_await rs_dev.async_get_rgb_frame(this_exec);
-      cv::Mat image(cv::Size(640, 480), CV_8UC3, (void*)rgb_frame.get_data(), cv::Mat::AUTO_STEP);
+      // If there's ever a segfault, this maybe to blame, removing const from const void*
+      cv::Mat image(cv::Size(640, 480), CV_8UC3, const_cast<void*>(rgb_frame.get_data()), cv::Mat::AUTO_STEP);
       auto object_found = classify(classifier, image);
 
       if (object_found == 1 or object_found == 2) {
-        // Arrow found
         current_target = Target{.type=Target::Type::ARROW_SIGHTED};
+        // Arrow found
+        std::array<float, 4> crop_rectangle = get_bounding_box(classifier);
+        cv::Point2f top_left(crop_rectangle[0], crop_rectangle[1]), bottom_right(crop_rectangle[2], crop_rectangle[3]);
+        auto depth_frame = co_await rs_dev.async_get_depth_frame();
+        cv::Mat depth_frame_mat(cv::Size(640, 480), CV_8UC1, const_cast<void*>(depth_frame.get_data()), cv::Mat::AUTO_STEP);
+        auto cropped_arrow = depth_frame_mat(cv::Rect(top_left, bottom_right));
+
+        int valid_depths = 0;
+        int mean_depth = 0;
+        using tPixel = cv::Point_<uint8_t>;
+        cropped_arrow.forEach<tPixel>([&valid_depths, &mean_depth](const tPixel &p, const int* pos) {
+          valid_depths += (p.x != 0);
+          mean_depth += p.x;
+        });
+        if (valid_depths >= (0.5*cropped_arrow.total())) {
+          // Target lock
+          current_target.type = Target::Type::ARROW_LOCKED;
+        }
+        
+        // Set AP Target
       }
 
       // If a target is found, check for duplicates against visited_targets
