@@ -85,15 +85,6 @@ calculate_obstacle_distances(tPclPtr pc,
     rg_img.get1dPointAverage(idx, 1, 1, 58, 58, ray);
     distances[i - 1] = ray.range;
   }
-  // float alpha = hfov / 72.0f;
-  // float h = 4.0f;
-  // float x = h*std::tan(hfov/2.0f);
-  // std::iota(begin(distances), end(distances), 1);
-  // std::transform(begin(distances), end(distances), begin(distances),
-  // [alpha](float a) { return a*alpha; }); std::transform(begin(distances),
-  // end(distances), begin(distances), [x, hfov, h](float a) { return x -
-  // (h*std::tan((hfov/2.0)-a));
-  // });
 }
 
 tPclPtr points_to_pcl(const rs2::points& points)
@@ -293,7 +284,7 @@ auto mission() -> asio::awaitable<void> {
         co_await mi.set_target_velocity(std::span(stop_vel));
         timer.expires_after(10s);
         co_await timer.async_wait(use_nothrow_awaitable);
-        // Change heading
+        // TODO: Change heading
         visited_targets.emplace(current_target);
         current_target = Target{.type=Target::Type::HEADING};
         continue;
