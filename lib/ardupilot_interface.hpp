@@ -115,6 +115,11 @@ class MavlinkInterface
     return asio::async_write(
       m_uart, asio::buffer(buffer, len), use_nothrow_awaitable);
   }
+  auto update_local_position(const mavlink_message_t* msg) -> void {
+    mavlink_local_position_ned_t pos;
+    mavlink_msg_local_position_ned_decode(msg, &pos);
+    m_ap_state.m_local_xyz = {pos.x, pos.y, pos.z};
+  }
   auto update_global_position(const mavlink_message_t* msg) -> void {
     mavlink_global_position_int_cov_t pos;
     mavlink_msg_global_position_int_cov_decode(msg, &pos);
@@ -144,6 +149,7 @@ class MavlinkInterface
       case MAVLINK_MSG_ID_LOCAL_POSITION_NED:
         // TODO: https://mavlink.io/en/messages/common.html#LOCAL_POSITION_NED
         spdlog::trace("Got local_position_ned");
+        update_local_position(msg);
         break;
       case MAVLINK_MSG_ID_ATTITUDE:
         spdlog::trace("Got attitude");
