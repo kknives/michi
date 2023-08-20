@@ -33,6 +33,7 @@ const char* banner = R"Banner(
 >=>        >=> >==>    >=>        >=> >==>    >=>        >==>   >==>>>==> >==>  >=> >==>  >=>  >====>   >==>
 )Banner";
 
+// TODO: Add hash function/PoSet relation
 struct Target {
   enum class Type {
     ARROW_LOCKED,
@@ -44,8 +45,6 @@ struct Target {
   Type type;
   std::optional<std::array<float, 3>> location;
   std::optional<float> heading;
-};
-struct ArrowState {
 };
 
 using fmt::print;
