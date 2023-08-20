@@ -76,8 +76,9 @@ constexpr auto use_nothrow_awaitable =
 const float INVALID = 0.0f;
 
 struct ArdupilotState {
+  std::array<float, 3> m_local_xyz;
   std::array<int32_t, 3> m_lat_lon_alt;
-  std::array<float, 3> m_vel;
+  std::array<float, 3> m_global_vel;
   std::array<float, 3> m_rpy;
   std::array<float, 3> m_rpy_vel;
 };
@@ -118,7 +119,7 @@ class MavlinkInterface
     mavlink_global_position_int_cov_t pos;
     mavlink_msg_global_position_int_cov_decode(msg, &pos);
     m_ap_state.m_lat_lon_alt = {pos.lat, pos.lon, pos.alt};
-    m_ap_state.m_vel = {pos.vx, pos.vy, pos.vz};
+    m_ap_state.m_global_vel = {pos.vx, pos.vy, pos.vz};
   }
   auto update_attitude(const mavlink_message_t* msg) -> void {
     mavlink_attitude_t att;
@@ -165,7 +166,7 @@ class MavlinkInterface
         spdlog::trace("Unhandled message id {}", msg->msgid);
     }
     spdlog::info("State updated: {} {} {} {}", m_ap_state.m_lat_lon_alt, 
-    m_ap_state.m_vel, m_ap_state.m_rpy, m_ap_state.m_rpy_vel);
+    m_ap_state.m_global_vel, m_ap_state.m_rpy, m_ap_state.m_rpy_vel);
   }
 
 public:
@@ -294,11 +295,14 @@ public:
       co_return make_unexpected(MavlinkErrc::FailedWrite);
     }
   }
+  auto local_position() -> std::span<float, 3> const {
+    return std::span(m_ap_state.m_local_xyz);
+  }
   auto global_position() -> std::span<int32_t, 3> const {
     return std::span(m_ap_state.m_lat_lon_alt);
   }
-  auto linear_velocity() -> std::span<float, 3> const {
-    return std::span(m_ap_state.m_vel);
+  auto global_linear_velocity() -> std::span<float, 3> const {
+    return std::span(m_ap_state.m_global_vel);
   }
   auto set_target_velocity(std::span<float, 3> velxyz)
     -> asio::awaitable<tResult<void>>
