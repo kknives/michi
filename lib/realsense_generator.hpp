@@ -23,8 +23,6 @@
 #include <librealsense2/rs.hpp>
 #include <librealsense2/rsutil.h>
 
-#include <Eigen/Geometry>
-
 #include <asio.hpp>
 
 using namespace std::literals::chrono_literals;
@@ -123,8 +121,6 @@ class RealsenseDevice {
   private:
   rs2::pipeline pipe;
   rs2::frameset frames;
-  std::optional<rs2::frame> rgb_frame;
-  std::optional<rs2::points> points;
 
   rs2::decimation_filter dec_filter;
   rs2::temporal_filter temp_filter;
