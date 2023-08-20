@@ -1,8 +1,10 @@
 #pragma once
 
+#include "ardupilot_interface.hpp"
 #include "expected.hpp"
 #include <asio/async_result.hpp>
 #include <asio/io_context.hpp>
+#include <asio/steady_timer.hpp>
 #include <compare>
 #include <librealsense2/h/rs_sensor.h>
 #include <spdlog/spdlog.h>
@@ -84,6 +86,7 @@ auto setup_device() noexcept -> tResult<std::tuple<rs2::pipeline, float, float>>
 }
 
 class RealsenseDevice {
+  // TODO: remove io_ctx
   auto async_update(const asio::any_io_executor& io_ctx) -> asio::awaitable<void> {
     // FIXME: Sync to frame time using an asio::timer instead of sleeping
     while (not pipe.poll_for_frames(&frames)) {
@@ -105,12 +108,27 @@ class RealsenseDevice {
   public:
   RealsenseDevice(rs2::pipeline& pipe) : pipe{pipe} {}
   auto async_get_rgb_frame(const asio::any_io_executor& io_ctx) -> asio::awaitable<rs2::frame> {
-    if (not rgb_frame.has_value()) co_await async_update(io_ctx);
-    co_return *std::exchange(rgb_frame, std::nullopt);
+    rs2::frame rgb_frame = frames.first_or_default(RS2_STREAM_COLOR);
+    while (not rgb_frame) {
+      co_await async_update(io_ctx);
+      rgb_frame = frames.first_or_default(RS2_STREAM_COLOR);
+    }
+    co_return rgb_frame;
+  }
+  auto async_get_depth_frame() -> asio::awaitable<rs2::frame> {
+    rs2::frame depth = frames.first_or_default(RS2_STREAM_DEPTH);
+    while (not depth) {
+      co_await async_update(co_await asio::this_coro::executor);
+      depth = frames.first_or_default(RS2_STREAM_DEPTH);
+    }
+    // Decimation > Spatial > Temporal > Threshold
+    depth = dec_filter.process(depth);
+    depth = temp_filter.process(depth);
+    co_return depth;
   }
   auto async_get_points(const asio::any_io_executor& io_ctx) -> asio::awaitable<rs2::points>{
-    if (not points.has_value()) co_await async_update(io_ctx);
-    co_return *std::exchange(points, std::nullopt);
+    rs2::frame depth = co_await async_get_depth_frame();
+    co_return pc.calculate(depth);
   }
   private:
   rs2::pipeline pipe;
