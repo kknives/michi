@@ -50,6 +50,25 @@ auto locate_obstacles(RealsenseDevice& rs_dev, MavlinkInterface& mi) -> asio::aw
     // TODO: Bring in the method from rs_pcl_color and use MAVLinkInterface
   }
 }
+auto get_depth_lock(rs2::frame& depth_frame, std::span<float, 4> rect_vertices) -> std::optional<float> {
+  cv::Point2f top_left(rect_vertices[0], rect_vertices[1]), bottom_right(rect_vertices[2], rect_vertices[3]);
+  cv::Mat depth_frame_mat(cv::Size(640, 480), CV_8UC1, const_cast<void*>(depth_frame.get_data()), cv::Mat::AUTO_STEP);
+  auto cropped = depth_frame_mat(cv::Rect(top_left, bottom_right));
+
+  int valid_depths = 0;
+  int mean_depth = 0;
+  using tPixel = cv::Point_<uint8_t>;
+  cropped.forEach<tPixel>([&valid_depths, &mean_depth](const tPixel &p, const int* pos) {
+    valid_depths += (p.x != 0);
+    mean_depth += p.x;
+  });
+  std::optional<float> distance;
+  if (valid_depths >= (0.5*cropped.total())) {
+    // Lock available
+    distance.emplace(mean_depth/cropped.total());
+  }
+  return distance;
+}
 
 auto mission() -> asio::awaitable<void> {
   auto this_exec = co_await asio::this_coro::executor;
@@ -75,6 +94,7 @@ auto mission() -> asio::awaitable<void> {
     if (current_target.type == Target::Type::HEADING) {
       // Get the current frame and process it for potential targets
       auto rgb_frame = co_await rs_dev.async_get_rgb_frame(this_exec);
+      auto depth_frame = co_await rs_dev.async_get_depth_frame();
       // If there's a segfault, this maybe to blame, removing const from const void*
       cv::Mat image(cv::Size(640, 480), CV_8UC3, const_cast<void*>(rgb_frame.get_data()), cv::Mat::AUTO_STEP);
       auto object_found = classify(classifier, image);
@@ -83,21 +103,10 @@ auto mission() -> asio::awaitable<void> {
         current_target = Target{.type=Target::Type::ARROW_SIGHTED};
         // Arrow found
         std::array<float, 4> crop_rectangle = get_bounding_box(classifier);
-        cv::Point2f top_left(crop_rectangle[0], crop_rectangle[1]), bottom_right(crop_rectangle[2], crop_rectangle[3]);
-        auto depth_frame = co_await rs_dev.async_get_depth_frame();
-        cv::Mat depth_frame_mat(cv::Size(640, 480), CV_8UC1, const_cast<void*>(depth_frame.get_data()), cv::Mat::AUTO_STEP);
-        auto cropped_arrow = depth_frame_mat(cv::Rect(top_left, bottom_right));
 
-        int valid_depths = 0;
-        int mean_depth = 0;
-        using tPixel = cv::Point_<uint8_t>;
-        cropped_arrow.forEach<tPixel>([&valid_depths, &mean_depth](const tPixel &p, const int* pos) {
-          valid_depths += (p.x != 0);
-          mean_depth += p.x;
-        });
-        if (valid_depths >= (0.5*cropped_arrow.total())) {
-          // Target lock
-          current_target.type = Target::Type::ARROW_LOCKED;
+        auto lock_distance = get_depth_lock(depth_frame, crop_rectangle);
+        if (lock_distance) {
+          // Set AP Target with distance
         }
         
         // Set AP Target
@@ -117,6 +126,16 @@ auto mission() -> asio::awaitable<void> {
       // Check if realsense depth can give a lock on the location
       // Lock the target by setting a target on AP
       // If not, set the velocity low, match heading and carefully approach target
+
+      auto rgb_frame = co_await rs_dev.async_get_rgb_frame(this_exec);
+      auto depth_frame = co_await rs_dev.async_get_depth_frame();
+      cv::Mat image(cv::Size(640, 480), CV_8UC3, const_cast<void*>(rgb_frame.get_data()));
+      size_t object_found = classify(classifier, image);
+      // Arrows found
+      if (object_found == 1 or object_found == 2) {
+        std::array<float, 4> crop_rectangle = get_bounding_box(classifier);
+        auto lock_distance = get_depth_lock(depth_frame, crop_rectangle);
+      }
       continue;
     }
     if (current_target.type == Target::Type::ARROW_LOCKED or current_target.type == Target::Type::CONE_LOCKED) {
