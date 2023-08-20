@@ -33,7 +33,6 @@ const char* banner = R"Banner(
 >=>        >=> >==>    >=>        >=> >==>    >=>        >==>   >==>>>==> >==>  >=> >==>  >=>  >====>   >==>
 )Banner";
 
-using tLocation = std::tuple<double, double, double>;
 struct Target {
   enum class Type {
     ARROW_LOCKED,
@@ -43,7 +42,7 @@ struct Target {
     HEADING,
   };
   Type type;
-  std::optional<tLocation> location;
+  std::optional<std::array<float, 3>> location;
   std::optional<float> heading;
 };
 struct ArrowState {
@@ -217,9 +216,13 @@ auto mission() -> asio::awaitable<void> {
         auto lock_distance = get_depth_lock(depth_frame, crop_rectangle);
         if (lock_distance) {
           // Set AP Target with distance
+          co_await mi.set_target_position_local(std::span(forward_right_down));
+          continue;
         }
         
-        // Set AP Target
+        std::array<float, 3> vel_forward_right_down{};
+        co_await mi.set_target_velocity(std::span(vel_forward_right_down));
+        continue;
       }
 
       // If a target is found, check for duplicates against visited_targets
@@ -228,6 +231,8 @@ auto mission() -> asio::awaitable<void> {
       // Otherwise, reduce velocity and change heading to match target
 
       // If no target is found, maintain heading and loop
+      std::array<float, 3> vel_forward_right_down{};
+      co_await mi.set_target_velocity(std::span(vel_forward_right_down));
       continue;
     }
 
@@ -245,7 +250,20 @@ auto mission() -> asio::awaitable<void> {
       if (object_found == 1 or object_found == 2) {
         std::array<float, 4> crop_rectangle = get_bounding_box(classifier);
         auto lock_distance = get_depth_lock(depth_frame, crop_rectangle);
+        if (lock_distance) {
+          current_target.type = Target::Type::ARROW_LOCKED;
+          std::array<float, 3> forward_right_down{*lock_distance, 0.0f, 0.0f};
+          std::array<float, 3> ref_arrow;
+          auto current_position = mi.local_position();
+          std::transform(begin(forward_right_down), end(forward_right_down), begin(current_position), begin(ref_arrow));
+          current_target.location.emplace(ref_arrow);
+          
+          co_await mi.set_target_position_local(std::span(forward_right_down));
+          continue;
+        }
       }
+      std::array<float, 3> vel_forward_right_down{};
+      co_await mi.set_target_velocity(std::span(vel_forward_right_down));
       continue;
     }
     if (current_target.type == Target::Type::ARROW_LOCKED or current_target.type == Target::Type::CONE_LOCKED) {
