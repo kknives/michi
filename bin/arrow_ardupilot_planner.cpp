@@ -222,7 +222,11 @@ auto mission() -> asio::awaitable<void> {
           std::array<float, 3> forward_right_down{*lock_distance, 0.0f, 0.0f};
           std::array<float, 3> ref_arrow;
           auto current_position = mi.local_position();
-          std::transform(begin(forward_right_down), end(forward_right_down), begin(current_position), begin(ref_arrow), std::plus<>{});
+          std::transform(begin(forward_right_down),
+                         end(forward_right_down),
+                         begin(current_position),
+                         begin(ref_arrow),
+                         std::plus<float>());
           current_target.location.emplace(ref_arrow);
 
           co_await mi.set_target_position_local(std::span(forward_right_down));
@@ -264,9 +268,12 @@ auto mission() -> asio::awaitable<void> {
           std::array<float, 3> forward_right_down{*lock_distance, 0.0f, 0.0f};
           std::array<float, 3> ref_arrow;
           auto current_position = mi.local_position();
-          std::transform(begin(forward_right_down), end(forward_right_down), begin(current_position), begin(ref_arrow));
+          std::transform(begin(forward_right_down),
+                         end(forward_right_down),
+                         begin(current_position),
+                         begin(ref_arrow), std::plus<float>());
           current_target.location.emplace(ref_arrow);
-          
+
           co_await mi.set_target_position_local(std::span(forward_right_down));
           continue;
         }
@@ -281,7 +288,7 @@ auto mission() -> asio::awaitable<void> {
       // Don't continue, await the wait timer instead
       // Turn and set heading, clear current_target, push it to visited_targets
       auto current_position = mi.local_position();
-      float approach_distance = std::inner_product(begin(current_position), end(current_position), begin(*current_target.location), std::plus<>{}, [](const float& a, const float& b) { return (a-b)*(a-b); });
+      float approach_distance = std::inner_product(begin(current_position), end(current_position), begin(*current_target.location), 0.0f, std::plus<>{}, [](const float& a, const float& b) { return (a-b)*(a-b); });
       if (approach_distance < 10) {
         std::array<float, 3> stop_vel {0.0f, 0.0f, 0.0f};
         co_await mi.set_target_velocity(std::span(stop_vel));
