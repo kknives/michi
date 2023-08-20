@@ -11,6 +11,18 @@
 #include <spdlog/fmt/fmt.h>
 #include <asio.hpp>
 
+#include <pcl/common/angles.h>
+#include <pcl/point_types.h>
+#include <pcl/filters/passthrough.h>
+#include <pcl/sample_consensus/method_types.h>
+#include <pcl/sample_consensus/model_types.h>
+#include <pcl/segmentation/sac_segmentation.h>
+#include <pcl/ModelCoefficients.h>
+#include <pcl/filters/extract_indices.h>
+#include <pcl/filters/statistical_outlier_removal.h>
+#include <pcl/filters/voxel_grid.h>
+#include <pcl/range_image/range_image.h>
+
 const char* banner = R"Banner(
       >>                     >>               >======>    >=>
      >>=>                   >>=>              >=>    >=>  >=>
@@ -42,12 +54,109 @@ using tPclPtr = pcl::PointCloud<pcl::PointXYZ>::Ptr;
 
 static argparse::ArgumentParser args("ArrowArdupilotPlanner");
 
-auto locate_obstacles(RealsenseDevice& rs_dev, MavlinkInterface& mi) -> asio::awaitable<void> {
+void
+calculate_obstacle_distances(tPclPtr pc,
+                             std::array<float, 72>& distances,
+                             std::span<float, 2> fov)
+{
+  Eigen::Affine3f rs_pose =
+    static_cast<Eigen::Affine3f>(Eigen::Translation3f(0.0f, 0.0f, 0.0f));
+  float angular_res = (float)(1.0f * (M_PI / 180.0f));
+  pcl::RangeImage::CoordinateFrame coord_frame = pcl::RangeImage::CAMERA_FRAME;
+  float noise_lvl = 0.0f;
+  float min_range = 0.0f;
+  int border = 0;
+  pcl::RangeImage rg_img;
+  rg_img.createFromPointCloud(*pc,
+                              angular_res,
+                              fov[0],
+                              fov[1],
+                              rs_pose,
+                              coord_frame,
+                              noise_lvl,
+                              min_range,
+                              border);
+  float* goods = rg_img.getRangesArray();
+  std::cout << rg_img << "\n";
+  std::cout << goods << "\n";
+
+  int rays = distances.size();
+  for (int i = 1; i <= rays; i++) {
+    pcl::PointWithRange ray;
+    int idx = i * (88.0f / 72.0f);
+    rg_img.get1dPointAverage(idx, 1, 1, 58, 58, ray);
+    distances[i - 1] = ray.range;
+  }
+  // float alpha = hfov / 72.0f;
+  // float h = 4.0f;
+  // float x = h*std::tan(hfov/2.0f);
+  // std::iota(begin(distances), end(distances), 1);
+  // std::transform(begin(distances), end(distances), begin(distances),
+  // [alpha](float a) { return a*alpha; }); std::transform(begin(distances),
+  // end(distances), begin(distances), [x, hfov, h](float a) { return x -
+  // (h*std::tan((hfov/2.0)-a));
+  // });
+}
+
+tPclPtr points_to_pcl(const rs2::points& points)
+{
+    tPclPtr cloud(new pcl::PointCloud<pcl::PointXYZ>);
+
+    auto sp = points.get_profile().as<rs2::video_stream_profile>();
+    cloud->width = sp.width();
+    cloud->height = sp.height();
+    cloud->is_dense = false;
+    cloud->points.resize(points.size());
+    auto ptr = points.get_vertices();
+    for (auto& p : cloud->points)
+    {
+        p.x = ptr->x;
+        p.y = ptr->y;
+        p.z = ptr->z;
+        ptr++;
+    }
+
+    return cloud;
+}
+
+auto locate_obstacles(RealsenseDevice& rs_dev, MavlinkInterface& mi, std::span<float, 2> fov) -> asio::awaitable<void> {
   asio::steady_timer timer(co_await asio::this_coro::executor);
   
+  tPclPtr cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>), obstacle_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+  pcl::PassThrough<pcl::PointXYZ> pass_filter;
+  pcl::VoxelGrid<pcl::PointXYZ> voxel_filter;
+  pcl::SACSegmentation<pcl::PointXYZ> seg;
+  std::array<float, 72> distances;
+  pcl::ExtractIndices<pcl::PointXYZ> extract;
+  pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
+  pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
   for (;;) {
     auto points = co_await rs_dev.async_get_points(co_await asio::this_coro::executor);
-    // TODO: Bring in the method from rs_pcl_color and use MAVLinkInterface
+    auto pcl_points = points_to_pcl(points);
+    pass_filter.setInputCloud(pcl_points);
+    pass_filter.setFilterFieldName("z");
+    pass_filter.setFilterLimits(0.0, 1.0);
+    pass_filter.filter(*cloud_filtered);
+
+    voxel_filter.setInputCloud(cloud_filtered);
+    voxel_filter.setLeafSize(0.01f,0.01f,0.01f);
+    voxel_filter.filter(*cloud_filtered);
+    
+    seg.setOptimizeCoefficients(true);
+    seg.setModelType(pcl::SACMODEL_PLANE);
+    seg.setMethodType(pcl::SAC_RANSAC);
+    seg.setDistanceThreshold(0.1);
+    seg.setInputCloud(cloud_filtered);
+    seg.segment(*inliers, *coefficients);
+
+    extract.setInputCloud(cloud_filtered);
+    extract.setIndices(inliers);
+    extract.setNegative(false);
+    extract.filter(*obstacle_cloud);
+
+    calculate_obstacle_distances(pcl_points, distances, fov);
+
+    // Send obstacle distance and timer
   }
 }
 auto get_depth_lock(rs2::frame& depth_frame, std::span<float, 4> rect_vertices) -> std::optional<float> {
@@ -76,13 +185,14 @@ auto mission() -> asio::awaitable<void> {
   auto [rs_pipe, fovh, fovv] = *setup_device().or_else([] (std::error_code e) {
     spdlog::error("Couldn't setup realsense device: {}", e.message());
   });
+  std::array<float, 2> fov = {fovh, fovv};
   auto rs_dev = RealsenseDevice(rs_pipe);
   auto classifier = ClassificationModel(MobilenetArrowClassifier(args.get("--model")));
   auto mi = MavlinkInterface(asio::serial_port(this_exec, args.get("ardupilot")));
 
   bool done = false;
   if (not args.get<bool>("--no-avoid"))
-    asio::co_spawn(this_exec, locate_obstacles(rs_dev, mi), asio::detached);
+    asio::co_spawn(this_exec, locate_obstacles(rs_dev, mi, std::span(fov)), asio::detached);
   asio::co_spawn(this_exec, heartbeat_loop(mi), asio::detached);
   asio::co_spawn(this_exec, mi.receive_message_loop(), asio::detached);
 
