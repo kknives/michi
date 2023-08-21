@@ -54,7 +54,7 @@ static argparse::ArgumentParser args("ArrowArdupilotPlanner");
 
 void
 calculate_obstacle_distances(tPclPtr pc,
-                             std::array<float, 72>& distances,
+                             std::array<uint16_t, 72>& distances,
                              std::span<float, 2> fov)
 {
   Eigen::Affine3f rs_pose =
@@ -83,7 +83,7 @@ calculate_obstacle_distances(tPclPtr pc,
     pcl::PointWithRange ray;
     int idx = i * (88.0f / 72.0f);
     rg_img.get1dPointAverage(idx, 1, 1, 58, 58, ray);
-    distances[i - 1] = ray.range;
+    distances[i - 1] = uint16_t(ray.range);
   }
 }
 
@@ -115,7 +115,7 @@ auto locate_obstacles(RealsenseDevice& rs_dev, MavlinkInterface& mi, std::span<f
   pcl::PassThrough<pcl::PointXYZ> pass_filter;
   pcl::VoxelGrid<pcl::PointXYZ> voxel_filter;
   pcl::SACSegmentation<pcl::PointXYZ> seg;
-  std::array<float, 72> distances;
+  std::array<uint16_t, 72> distances;
   pcl::ExtractIndices<pcl::PointXYZ> extract;
   pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
   pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
@@ -145,7 +145,8 @@ auto locate_obstacles(RealsenseDevice& rs_dev, MavlinkInterface& mi, std::span<f
 
     calculate_obstacle_distances(pcl_points, distances, fov);
 
-    // Send obstacle distance and timer
+    co_await mi.set_obstacle_distance(
+      std::span(distances), 88.0f / 72.0f, 17.5f, 300.0f, 15.0f);
   }
 }
 auto get_depth_lock(rs2::frame& depth_frame, std::span<float, 4> rect_vertices) -> std::optional<float> {
@@ -285,7 +286,7 @@ auto mission() -> asio::awaitable<void> {
         timer.expires_after(10s);
         co_await timer.async_wait(use_nothrow_awaitable);
         // TODO: Change heading
-        visited_targets.emplace(current_target);
+        // visited_targets.emplace(current_target);
         current_target = Target{.type=Target::Type::HEADING};
         continue;
       }
