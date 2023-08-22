@@ -147,7 +147,6 @@ class MavlinkInterface
         spdlog::trace("Got system status");
         break;
       case MAVLINK_MSG_ID_LOCAL_POSITION_NED:
-        // TODO: https://mavlink.io/en/messages/common.html#LOCAL_POSITION_NED
         spdlog::trace("Got local_position_ned");
         update_local_position(msg);
         break;
@@ -171,7 +170,7 @@ class MavlinkInterface
       default:
         spdlog::trace("Unhandled message id {}", msg->msgid);
     }
-    spdlog::info("State updated: {} {} {} {}", m_ap_state.m_lat_lon_alt, 
+    spdlog::trace("State updated: {} {} {} {}", m_ap_state.m_lat_lon_alt, 
     m_ap_state.m_global_vel, m_ap_state.m_rpy, m_ap_state.m_rpy_vel);
   }
 
