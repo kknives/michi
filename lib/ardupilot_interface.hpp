@@ -309,6 +309,30 @@ public:
   auto global_linear_velocity() -> std::span<float, 3> const {
     return std::span(m_ap_state.m_global_vel);
   }
+  auto set_guided_mode_armed() -> asio::awaitable<tResult<void>> {
+    mavlink_message_t msg;
+    const uint16_t mav_cmd_do_set_mode = 176;
+    auto len = mavlink_msg_command_int_pack_chan(m_system_id,
+                                      m_my_id,
+                                      m_channel,
+                                      &msg,
+                                      m_system_id,
+                                      m_component_id,
+                                      MAV_FRAME_LOCAL_NED,
+                                      mav_cmd_do_set_mode,
+                                      0,
+                                      0,
+                                      MAV_MODE_GUIDED_ARMED,
+                                      0.0f, 0.0f, 0.0f, 0, 0, 0);
+    for (int i = 0; i < 4; i++) {
+      spdlog::info("Sending guided");
+      auto [error, written] = co_await send_message(msg);
+      if (error) {
+        spdlog::error("Could not send set and arm GUIDED mode, asio error: {}", error.message());
+        co_return make_unexpected(MavlinkErrc::FailedWrite);
+      }
+    }
+  }
   auto set_target_velocity(std::span<float, 3> velxyz)
     -> asio::awaitable<tResult<void>>
   {
