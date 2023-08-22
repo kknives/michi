@@ -190,6 +190,7 @@ auto mission() -> asio::awaitable<void> {
   Target current_target{.type=Target::Type::HEADING, .heading=0.0f};
   std::set<Target> visited_targets;
 
+  spdlog::info("Starting mission loop");
   // Mission Loop
   for (;;) {
     if (current_target.type == Target::Type::HEADING) {
@@ -201,12 +202,14 @@ auto mission() -> asio::awaitable<void> {
       auto object_found = classify(classifier, image);
 
       if (object_found == 1 or object_found == 2) {
+        spdlog::critical("Detected arrow, type {:d}", object_found);
         current_target = Target{.type=Target::Type::ARROW_SIGHTED};
         // Arrow found
         std::array<float, 4> crop_rectangle = get_bounding_box(classifier);
 
         auto lock_distance = get_depth_lock(depth_frame, crop_rectangle);
         if (lock_distance) {
+          spdlog::critical("Obtained lock, distance {:f}", *lock_distance);
           // Set AP Target with distance
           current_target.type = Target::Type::ARROW_LOCKED;
 
@@ -252,9 +255,11 @@ auto mission() -> asio::awaitable<void> {
       size_t object_found = classify(classifier, image);
       // Arrows found
       if (object_found == 1 or object_found == 2) {
+        spdlog::critical("Detected arrow, type {:d}", object_found);
         std::array<float, 4> crop_rectangle = get_bounding_box(classifier);
         auto lock_distance = get_depth_lock(depth_frame, crop_rectangle);
         if (lock_distance) {
+          spdlog::critical("Obtained lock, distance {:f}", *lock_distance);
           current_target.type = Target::Type::ARROW_LOCKED;
           std::array<float, 3> forward_right_down{*lock_distance, 0.0f, 0.0f};
           std::array<float, 3> ref_arrow;
@@ -287,6 +292,7 @@ auto mission() -> asio::awaitable<void> {
         std::plus<>{},
         [](const float& a, const float& b) { return (a - b) * (a - b); });
       if (approach_distance < 10) {
+        spdlog::critical("Target approach complete (distance {:f}), stopping", approach_distance);
         std::array<float, 3> stop_vel {0.0f, 0.0f, 0.0f};
         co_await mi.set_target_velocity(std::span(stop_vel));
         timer.expires_after(10s);
