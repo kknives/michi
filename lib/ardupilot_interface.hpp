@@ -112,8 +112,12 @@ class MavlinkInterface
   {
     uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
     auto len = mavlink_msg_to_send_buffer(buffer, &msg);
-    return asio::async_write(
+    std::vector<uint8_t> printl(len);
+    std::copy(buffer, buffer+len, begin(printl));
+    spdlog::info("Raw msg of len {}: {:x}", len, fmt::join(printl, " "));
+    auto res = co_await asio::async_write(
       m_uart, asio::buffer(buffer, len), use_nothrow_awaitable);
+    co_return res;
   }
   auto update_local_position(const mavlink_message_t* msg) -> void {
     mavlink_local_position_ned_t pos;
