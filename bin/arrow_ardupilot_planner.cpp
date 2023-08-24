@@ -178,7 +178,7 @@ auto mission() -> asio::awaitable<void> {
   std::array<float, 2> fov = {fovh, fovv};
   auto rs_dev = RealsenseDevice(rs_pipe);
   auto classifier = ClassificationModel(MobilenetArrowClassifier(args.get("--model")));
-  auto mi = MavlinkInterface(asio::serial_port(this_exec, args.get("ardupilot")));
+  auto mi = MavlinkInterface(tcp::socket(this_exec, *tcp::resolver(this_exec).resolve("0.0.0.0", "5760")));
 
   bool done = false;
   if (not args.get<bool>("--no-avoid"))
