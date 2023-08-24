@@ -183,6 +183,7 @@ public:
     : m_uart{ std::move(sp) }
     , m_start{ steady_clock::now() }
   {
+    m_uart.set_option(asio::serial_port_base::baud_rate(115200));
   }
   auto receive_message_loop() -> asio::awaitable<tResult<void>>
   {
@@ -316,19 +317,22 @@ public:
   auto set_guided_mode_armed() -> asio::awaitable<tResult<void>> {
     mavlink_message_t msg;
     const uint16_t mav_cmd_do_set_mode = 176;
-    auto len = mavlink_msg_command_int_pack_chan(m_system_id,
-                                      m_my_id,
-                                      m_channel,
-                                      &msg,
-                                      m_system_id,
-                                      m_component_id,
-                                      MAV_FRAME_LOCAL_NED,
-                                      mav_cmd_do_set_mode,
-                                      0,
-                                      0,
-                                      MAV_MODE_GUIDED_ARMED,
-                                      0.0f, 0.0f, 0.0f, 0, 0, 0);
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 1; i++) {
+      auto len = mavlink_msg_command_long_pack_chan(m_system_id,
+                                                    m_my_id,
+                                                    m_channel,
+                                                    &msg,
+                                                    m_system_id,
+                                                    m_component_id,
+                                                    mav_cmd_do_set_mode,
+                                                    i,
+                                                    1,
+                                                    15,
+                                                    0,
+                                                    0,
+                                                    0,
+                                                    0,
+                                                    0);
       spdlog::info("Sending guided");
       auto [error, written] = co_await send_message(msg);
       if (error) {
@@ -465,10 +469,10 @@ public:
                                     m_channel,
                                     &msg,
                                     MAV_TYPE_ONBOARD_CONTROLLER,
-                                    MAV_AUTOPILOT_INVALID,
-                                    MAV_MODE_FLAG_GUIDED_ENABLED,
-                                    INVALID,
-                                    MAV_STATE_STANDBY);
+                                    MAV_AUTOPILOT_GENERIC,
+                                    0,
+                                    0,
+                                    MAV_STATE_UNINIT);
     auto [error, written] = co_await send_message(msg);
     if (error) {
       spdlog::error("Could not send heartbeat, asio error: {}",
@@ -487,6 +491,7 @@ heartbeat_loop(MavlinkInterface& mi) -> asio::awaitable<tResult<void>>
     timer.expires_at(steady_clock::now() + 1s);
     co_await timer.async_wait(use_nothrow_awaitable);
     auto result = co_await mi.heartbeat();
+    result = co_await mi.set_guided_mode_armed();
     if (not result)
       co_return result;
   }
