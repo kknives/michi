@@ -18,6 +18,7 @@
 #include <spdlog/fmt/ranges.h>
 
 using namespace std::literals::chrono_literals;
+using asio::ip::tcp;
 
 enum class MavlinkErrc
 {
@@ -85,7 +86,7 @@ struct ArdupilotState {
 
 class MavlinkInterface
 {
-  asio::serial_port m_uart;
+  tcp::socket m_uart;
   time_point<steady_clock> m_start;
 
   // Guidance computer shares the system id with the autopilot => same system
@@ -179,11 +180,11 @@ class MavlinkInterface
   }
 
 public:
-  MavlinkInterface(asio::serial_port&& sp)
+  MavlinkInterface(tcp::socket&& sp)
     : m_uart{ std::move(sp) }
     , m_start{ steady_clock::now() }
   {
-    m_uart.set_option(asio::serial_port_base::baud_rate(115200));
+    // m_uart.set_option(asio::serial_port_base::baud_rate(115200));
   }
   auto receive_message_loop() -> asio::awaitable<tResult<void>>
   {
@@ -491,7 +492,6 @@ heartbeat_loop(MavlinkInterface& mi) -> asio::awaitable<tResult<void>>
     timer.expires_at(steady_clock::now() + 1s);
     co_await timer.async_wait(use_nothrow_awaitable);
     auto result = co_await mi.heartbeat();
-    result = co_await mi.set_guided_mode_armed();
     if (not result)
       co_return result;
   }
