@@ -178,8 +178,13 @@ auto mission() -> asio::awaitable<void> {
   std::array<float, 2> fov = {fovh, fovv};
   auto rs_dev = RealsenseDevice(rs_pipe);
   auto classifier = ClassificationModel(MobilenetArrowClassifier(args.get("--model")));
-  auto mi = MavlinkInterface(tcp::socket(this_exec, *tcp::resolver(this_exec).resolve("0.0.0.0", "5760")));
+  tcp::socket ap_socket(this_exec);
+  ap_socket.connect(*tcp::resolver(this_exec).resolve("0.0.0.0", "5760", tcp::resolver::passive));
+  auto mi = MavlinkInterface(std::move(ap_socket));
 
+  (co_await mi.set_guided_mode_armed()).or_else([] (std::error_code e) {
+    spdlog::error("Couldn't set guided mode: {}", e.message());
+  });
   bool done = false;
   if (not args.get<bool>("--no-avoid"))
     asio::co_spawn(this_exec, locate_obstacles(rs_dev, mi, std::span(fov)), asio::detached);
