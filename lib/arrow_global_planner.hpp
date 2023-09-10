@@ -21,7 +21,7 @@ class ArrowPlanner {
       if (not front.has_value()) {
         // return continue-as-usual goal
         // set velocity here, if slowed down
-        co_return;
+        // co_return;
       }
       auto [object, approach, angle] = *front;
       if (object == ObjectType::ARROW_LEFT or
@@ -31,18 +31,27 @@ class ArrowPlanner {
           co_await mi.set_target_velocity({ m_careful_vel_ms, 0.0f, 0.0f });
         }
         if (int(approach * 1000) > int(m_arrow_min_approach * 1000)) {
-          co_await mi.set_target_velocity({ m_approach_vel_ms, 0.0f, 0.0f });
+          auto result =
+            co_await mi.set_target_velocity({ m_approach_vel_ms, 0.0f, 0.0f });
+          if (result.has_error())
+            return result.error();
 
           asio::steady_timer timer(co_await asio::this_coro::executor);
           timer.expires_at(steady_clock::now() + 2s);
           co_await timer.async_wait(use_nothrow_awaitable);
 
-          co_await mi.set_target_velocity({ 0.0f, 0.0f, 0.0f });
+          auto result = co_await mi.set_target_velocity({ 0.0f, 0.0f, 0.0f });
+          if (result.has_error())
+            return result.error();
+
           timer.expires_at(steady_clock::now() + 12s);
           co_await timer.async_wait(use_nothrow_awaitable);
 
           // compute rotation quaternion
-          co_await mi.set_target_attitude({ 0.0f, 0.0f, 0.0f, 0.0f }, 0.5, 0.5);
+          auto result = co_await mi.set_target_attitude(
+            { 0.0f, 0.0f, 0.0f, 0.0f }, 0.5, 0.5);
+          if (result.has_error())
+            return result.error();
 
           // slow down even more, prepare to stop
           // stop
@@ -53,7 +62,10 @@ class ArrowPlanner {
         // return goal
       }
       if (auto cone = cone_in_view(state); arrows == 5) {
-        co_await mi.set_target_velocity({ m_approach_vel_ms, 0.0f, 0.0f });
+        auto result =
+          co_await mi.set_target_velocity({ m_approach_vel_ms, 0.0f, 0.0f });
+        if (result.has_error())
+          return result.error();
         // Approach cone and stop
         // return goal
       }
