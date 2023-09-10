@@ -188,8 +188,39 @@ auto mission() -> asio::awaitable<void> {
   bool done = false;
   if (not args.get<bool>("--no-avoid"))
     asio::co_spawn(this_exec, locate_obstacles(rs_dev, mi, std::span(fov)), asio::detached);
-  asio::co_spawn(this_exec, heartbeat_loop(mi), asio::detached);
-  asio::co_spawn(this_exec, mi.receive_message_loop(), asio::detached);
+  asio::co_spawn(
+    this_exec, heartbeat_loop(mi), [](std::exception_ptr p, tResult<void> r) {
+      if (p) {
+        try {
+          std::rethrow_exception(p);
+        } catch (const std::exception& e) {
+          spdlog::error("Heartbeat coroutine threw exception: {}", e.what());
+        }
+      }
+      r.map_error([](std::error_code e) {
+        spdlog::error("Heartbeat coroutine faced error: {}: {}",
+                      e.category().name(),
+                      e.message());
+      });
+    });
+  asio::co_spawn(
+    this_exec,
+    mi.receive_message_loop(),
+    [](std::exception_ptr p, tResult<void> r) {
+      if (p) {
+        try {
+          std::rethrow_exception(p);
+        } catch (const std::exception& e) {
+          spdlog::error("receive_message_loop coroutine threw exception: {}",
+                        e.what());
+        }
+      }
+      r.map_error([](std::error_code e) {
+        spdlog::error("receive_message_loop coroutine faced error: {}: {}",
+                      e.category().name(),
+                      e.message());
+      });
+    });
 
   asio::steady_timer timer(this_exec);
   Target current_target{.type=Target::Type::HEADING, .heading=0.0f};
