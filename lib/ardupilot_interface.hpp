@@ -84,9 +84,10 @@ struct ArdupilotState {
   std::array<float, 3> m_rpy_vel;
 };
 
+template <typename I>
 class MavlinkInterface
 {
-  tcp::socket m_uart;
+  I m_uart;
   time_point<steady_clock> m_start;
 
   // Guidance computer shares the system id with the autopilot => same system
@@ -180,7 +181,7 @@ class MavlinkInterface
   }
 
 public:
-  MavlinkInterface(tcp::socket&& sp)
+  MavlinkInterface(I && sp)
     : m_uart{ std::move(sp) }
     , m_start{ steady_clock::now() }
   {
@@ -485,7 +486,7 @@ public:
 };
 
 auto
-heartbeat_loop(MavlinkInterface& mi) -> asio::awaitable<tResult<void>>
+heartbeat_loop(auto& mi) -> asio::awaitable<tResult<void>>
 {
   asio::steady_timer timer(co_await asio::this_coro::executor);
   while (true) {

@@ -108,7 +108,7 @@ tPclPtr points_to_pcl(const rs2::points& points)
     return cloud;
 }
 
-auto locate_obstacles(RealsenseDevice& rs_dev, MavlinkInterface& mi, std::span<float, 2> fov) -> asio::awaitable<void> {
+auto locate_obstacles(RealsenseDevice& rs_dev, auto& mi, std::span<float, 2> fov) -> asio::awaitable<void> {
   asio::steady_timer timer(co_await asio::this_coro::executor);
   
   tPclPtr cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>), obstacle_cloud(new pcl::PointCloud<pcl::PointXYZ>);
