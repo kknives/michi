@@ -2,6 +2,7 @@
 
 #include "ardupilot_interface.hpp"
 #include <opencv4/opencv2/opencv.hpp>
+#include "common.hpp"
 #include "realsense_generator.hpp"
 #include "classification_model.hpp"
 #include "mobilenet_arrow.hpp"
@@ -9,7 +10,7 @@
 #include <asio/this_coro.hpp>
 #include <spdlog/spdlog.h>
 #include <spdlog/fmt/fmt.h>
-#include <asio.hpp>
+#include <memory>
 
 #include <pcl/common/angles.h>
 #include <pcl/point_types.h>
@@ -145,8 +146,10 @@ auto locate_obstacles(RealsenseDevice& rs_dev, auto& mi, std::span<float, 2> fov
 
     calculate_obstacle_distances(pcl_points, distances, fov);
 
-    mi.set_obstacle_distance(
+    co_await mi->set_obstacle_distance(
       std::span(distances), 88.0f / 72.0f, 17.5f, 300.0f, 15.0f);
+    timer.expires_after(1s);
+    co_await timer.async_wait(use_nothrow_awaitable);
   }
 }
 auto get_depth_lock(rs2::frame& depth_frame, std::span<float, 4> rect_vertices) -> std::optional<float> {
@@ -180,34 +183,31 @@ auto mission() -> asio::awaitable<void> {
   auto classifier = ClassificationModel(MobilenetArrowClassifier(args.get("--model")));
   tcp::socket ap_socket(this_exec);
   ap_socket.connect(*tcp::resolver(this_exec).resolve("0.0.0.0", "5760", tcp::resolver::passive));
-  auto mi = MavlinkInterface(std::move(ap_socket));
+  auto mi = std::make_shared<MavlinkInterface<tcp::socket>>((std::move(ap_socket)));
 
-  mi.set_guided_mode_armed();
-  // (co_await mi.set_guided_mode_armed()).or_else([] (std::error_code e) {
-  //   spdlog::error("Couldn't set guided mode: {}", e.message());
-  // });
   bool done = false;
   if (not args.get<bool>("--no-avoid"))
     asio::co_spawn(this_exec, locate_obstacles(rs_dev, mi, std::span(fov)), asio::detached);
-  asio::co_spawn(
-    this_exec,
-    mi.loop(),
-    [](std::exception_ptr p, tResult<void> r) {
-      if (p) {
-        try {
-          std::rethrow_exception(p);
-        } catch (const std::exception& e) {
-          spdlog::error("loop coroutine threw exception: {}",
-                        e.what());
-        }
-      }
-      r.map_error([](std::error_code e) {
-        spdlog::error("loop coroutine faced error: {}: {}",
-                      e.category().name(),
-                      e.message());
-      });
-    });
+  // asio::co_spawn(
+  //   this_exec,
+  //   mi->loop(),
+  //   [](std::exception_ptr p, tResult<void> r) {
+  //     if (p) {
+  //       try {
+  //         std::rethrow_exception(p);
+  //       } catch (const std::exception& e) {
+  //         spdlog::error("loop coroutine threw exception: {}",
+  //                       e.what());
+  //       }
+  //     }
+  //     r.map_error([](std::error_code e) {
+  //       spdlog::error("loop coroutine faced error: {}: {}",
+  //                     e.category().name(),
+  //                     e.message());
+  //     });
+  //   });
 
+  co_await mi->set_guided_mode_armed();
   asio::steady_timer timer(this_exec);
   Target current_target{.type=Target::Type::HEADING, .heading=0.0f};
   std::set<Target> visited_targets;
@@ -215,6 +215,7 @@ auto mission() -> asio::awaitable<void> {
   spdlog::info("Starting mission loop");
   // Mission Loop
   for (;;) {
+    co_await mi->loop();
     if (current_target.type == Target::Type::HEADING) {
       // Get the current frame and process it for potential targets
       auto rgb_frame = co_await rs_dev.async_get_rgb_frame(this_exec);
@@ -237,7 +238,7 @@ auto mission() -> asio::awaitable<void> {
 
           std::array<float, 3> forward_right_down{*lock_distance, 0.0f, 0.0f};
           std::array<float, 3> ref_arrow;
-          auto current_position = mi.local_position();
+          auto current_position = mi->local_position();
           std::transform(begin(forward_right_down),
                          end(forward_right_down),
                          begin(current_position),
@@ -245,12 +246,12 @@ auto mission() -> asio::awaitable<void> {
                          std::plus<float>());
           current_target.location.emplace(ref_arrow);
 
-          mi.set_target_position_local(std::span(forward_right_down));
+          co_await mi->set_target_position_local(std::span(forward_right_down));
           continue;
         }
         
         std::array<float, 3> vel_forward_right_down{};
-        mi.set_target_velocity(std::span(vel_forward_right_down));
+        co_await mi->set_target_velocity(std::span(vel_forward_right_down));
         continue;
       }
 
@@ -261,7 +262,7 @@ auto mission() -> asio::awaitable<void> {
 
       // If no target is found, maintain heading and loop
       std::array<float, 3> vel_forward_right_down{};
-      mi.set_target_velocity(std::span(vel_forward_right_down));
+      co_await mi->set_target_velocity(std::span(vel_forward_right_down));
       continue;
     }
 
@@ -285,19 +286,19 @@ auto mission() -> asio::awaitable<void> {
           current_target.type = Target::Type::ARROW_LOCKED;
           std::array<float, 3> forward_right_down{*lock_distance, 0.0f, 0.0f};
           std::array<float, 3> ref_arrow;
-          auto current_position = mi.local_position();
+          auto current_position = mi->local_position();
           std::transform(begin(forward_right_down),
                          end(forward_right_down),
                          begin(current_position),
                          begin(ref_arrow), std::plus<float>());
           current_target.location.emplace(ref_arrow);
 
-          mi.set_target_position_local(std::span(forward_right_down));
+          co_await mi->set_target_position_local(std::span(forward_right_down));
           continue;
         }
       }
       std::array<float, 3> vel_forward_right_down{};
-      mi.set_target_velocity(std::span(vel_forward_right_down));
+      co_await mi->set_target_velocity(std::span(vel_forward_right_down));
       continue;
     }
     if (current_target.type == Target::Type::ARROW_LOCKED or current_target.type == Target::Type::CONE_LOCKED) {
@@ -305,7 +306,7 @@ auto mission() -> asio::awaitable<void> {
       // Get the distance to target, cutoff appraoch and wait if needed
       // Don't continue, await the wait timer instead
       // Turn and set heading, clear current_target, push it to visited_targets
-      auto current_position = mi.local_position();
+      auto current_position = mi->local_position();
       float approach_distance = std::inner_product(
         begin(current_position),
         end(current_position),
@@ -316,7 +317,7 @@ auto mission() -> asio::awaitable<void> {
       if (approach_distance < 10) {
         spdlog::critical("Target approach complete (distance {:f}), stopping", approach_distance);
         std::array<float, 3> stop_vel {0.0f, 0.0f, 0.0f};
-        mi.set_target_velocity(std::span(stop_vel));
+        co_await mi->set_target_velocity(std::span(stop_vel));
         timer.expires_after(10s);
         co_await timer.async_wait(use_nothrow_awaitable);
         // TODO: Change heading
