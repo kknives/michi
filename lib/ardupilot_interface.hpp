@@ -178,7 +178,7 @@ class MavlinkInterface
     m_ap_state.m_global_vel, m_ap_state.m_rpy, m_ap_state.m_rpy_vel);
   }
   auto receive_message() -> asio::awaitable<tResult<void>> {
-    std::vector<uint8_t> buffer(8);
+    std::vector<uint8_t> buffer(MAVLINK_MAX_PACKET_LEN);
     auto [error, len] = co_await m_uart.async_read_some(
       asio::buffer(buffer), use_nothrow_awaitable);
     if (error)
