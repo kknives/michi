@@ -358,9 +358,10 @@ public:
   auto global_linear_velocity() -> std::span<float, 3> const {
     return std::span(m_ap_state.m_global_vel);
   }
-  auto set_guided_mode_armed() -> void {
+  auto set_guided_mode_armed() -> asio::awaitable<void> {
     mavlink_message_t msg;
     const uint16_t mav_cmd_do_set_mode = 176;
+    asio::steady_timer timer(co_await asio::this_coro::executor);
     for (int i = 0; i < 1; i++) {
       auto len = mavlink_msg_command_long_pack_chan(m_system_id,
                                                     m_my_id,
@@ -379,6 +380,8 @@ public:
                                                     0);
       spdlog::info("Sending guided");
       m_msg_queue.emplace(msg);
+      timer.expires_after(60ms);
+      co_await timer.async_wait(use_nothrow_awaitable);
       // auto [error, written] = co_await send_message(msg);
       // if (error) {
       //   spdlog::error("Could not send set and arm GUIDED mode, asio error: {}", error.message());
@@ -387,7 +390,7 @@ public:
     }
   }
   auto set_target_velocity(std::span<float, 3> velxyz)
-    -> void
+    -> asio::awaitable<void>
   {
     mavlink_message_t msg;
     mavlink_msg_set_position_target_local_ned_pack_chan(
@@ -412,6 +415,9 @@ public:
       INVALID,
       INVALID);
     m_msg_queue.emplace(msg);
+    asio::steady_timer timer(co_await asio::this_coro::executor);
+    timer.expires_after(60ms);
+    co_await timer.async_wait(use_nothrow_awaitable);
     // auto [error, written] = co_await send_message(msg);
     // if (error) {
     //   spdlog::error("Could not send set_target, asio error: {}\n",
@@ -420,7 +426,7 @@ public:
     // }
   }
   auto set_target_position_local(std::span<float, 3> xyz)
-    -> void
+    -> asio::awaitable<void>
   {
     mavlink_message_t msg;
     mavlink_msg_set_position_target_local_ned_pack_chan(
@@ -445,6 +451,9 @@ public:
       INVALID,
       INVALID);
     m_msg_queue.emplace(msg);
+    asio::steady_timer timer(co_await asio::this_coro::executor);
+    timer.expires_after(60ms);
+    co_await timer.async_wait(use_nothrow_awaitable);
     // auto [error, written] = co_await send_message(msg);
     // // TODO: add cancellation and time out here
     // if (error) {
@@ -455,7 +464,7 @@ public:
   }
   auto set_target_attitude(std::span<float, 4> rotation_quaternion,
                            float yaw_rate,
-                           float thrust) -> void
+                           float thrust) -> asio::awaitable<void>
   {
     mavlink_message_t msg;
     const int8_t USE_YAWRATE_ATTITUDE_THRUST = 0x23;
@@ -475,6 +484,9 @@ public:
                                               thrust,
                                               unused_thrust_body_field);
     m_msg_queue.emplace(msg);
+    asio::steady_timer timer(co_await asio::this_coro::executor);
+    timer.expires_after(60ms);
+    co_await timer.async_wait(use_nothrow_awaitable);
     // auto [error, written] = co_await send_message(msg);
     // if (error) {
     //   spdlog::error("Could not send set_attitude, asio error: {}\n",
@@ -486,7 +498,7 @@ public:
                              float increment,
                              float min_distance,
                              float max_distance,
-                             float offset) -> void
+                             float offset) -> asio::awaitable<void>
   {
     mavlink_message_t msg;
     mavlink_msg_obstacle_distance_pack_chan(m_system_id,
@@ -503,6 +515,9 @@ public:
                                             offset,
                                             MAV_FRAME_BODY_FRD);
     m_msg_queue.emplace(msg);
+    asio::steady_timer timer(co_await asio::this_coro::executor);
+    timer.expires_after(60ms);
+    co_await timer.async_wait(use_nothrow_awaitable);
     // auto [error, written] = co_await send_message(msg);
     // if (error) {
     //   spdlog::error("Could not send obstacle_distance, asio error: {}\n",
