@@ -211,12 +211,18 @@ public:
       if (steady_clock::now() > last_heartbeat + 1s) {
         hb_msg = heartbeat();
         tie(error, written) = co_await send_message(hb_msg);
-        if (error) spdlog::error("Couldn't send heartbeat, asio error: {}", error.message());   
+        if (error) {
+          spdlog::trace("Couldn't send heartbeat, asio error: {}", error.message());   
+          co_return make_unexpected(MavlinkErrc::FailedWrite);
+        }
       }
       if (not m_msg_queue.empty()) {
         auto this_msg = m_msg_queue.front();
         tie(error, written) = co_await send_message(this_msg);
-        if (error) spdlog::error("Couldn't send msg, id: {}, asio error: {}", static_cast<unsigned int>(this_msg.msgid), error.message());   
+        if (error) {
+          spdlog::trace("Couldn't send msg, id: {}, asio error: {}", static_cast<unsigned int>(this_msg.msgid), error.message());   
+          co_return make_unexpected(MavlinkErrc::FailedWrite);
+        }
         m_msg_queue.pop();
       }
       auto result = co_await receive_message();
