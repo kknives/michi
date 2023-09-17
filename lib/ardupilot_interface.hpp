@@ -112,9 +112,6 @@ class MavlinkInterface
   {
     uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
     auto len = mavlink_msg_to_send_buffer(buffer, &msg);
-    std::vector<uint8_t> printl(len);
-    std::copy(buffer, buffer+len, begin(printl));
-    spdlog::info("Raw msg of len {}: {:x}", len, fmt::join(printl, " "));
     auto res = co_await asio::async_write(
       m_uart, asio::buffer(buffer, len), use_nothrow_awaitable);
     co_return res;
@@ -203,7 +200,7 @@ public:
     mavlink_message_t hb_msg = heartbeat();
     auto [error, written] = co_await send_message(hb_msg);
     if (error) {
-      spdlog::error("Couldn't send first heartbeat, asio error: {}", error.message());
+      spdlog::trace("Couldn't send first heartbeat, asio error: {}", error.message());
       co_return make_unexpected(MavlinkErrc::FailedWrite);
     }
     auto last_heartbeat = steady_clock::now();
