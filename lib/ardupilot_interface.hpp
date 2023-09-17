@@ -2,9 +2,9 @@
 
 #include "expected.hpp"
 #include <algorithm>
-#include <asio.hpp>
-#include <asio/experimental/as_tuple.hpp>
-#include <asio/experimental/awaitable_operators.hpp>
+#include <queue>
+#include "common.hpp"
+#include <chrono>
 #include <asio/serial_port.hpp>
 #include <asio/this_coro.hpp>
 #include <asio/write.hpp>
@@ -71,9 +71,6 @@ template<typename T>
 using tResult = tl::expected<T, std::error_code>;
 using tl::make_unexpected;
 using namespace std::chrono;
-using namespace asio::experimental::awaitable_operators;
-constexpr auto use_nothrow_awaitable =
-  asio::experimental::as_tuple(asio::use_awaitable);
 const float INVALID = 0.0f;
 
 struct ArdupilotState {

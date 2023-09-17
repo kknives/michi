@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ardupilot_interface.hpp"
+#include "common.hpp"
 #include "expected.hpp"
 #include <asio/async_result.hpp>
 #include <asio/io_context.hpp>
