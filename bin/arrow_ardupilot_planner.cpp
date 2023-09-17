@@ -145,7 +145,7 @@ auto locate_obstacles(RealsenseDevice& rs_dev, auto& mi, std::span<float, 2> fov
 
     calculate_obstacle_distances(pcl_points, distances, fov);
 
-    co_await mi.set_obstacle_distance(
+    mi.set_obstacle_distance(
       std::span(distances), 88.0f / 72.0f, 17.5f, 300.0f, 15.0f);
   }
 }
@@ -182,41 +182,27 @@ auto mission() -> asio::awaitable<void> {
   ap_socket.connect(*tcp::resolver(this_exec).resolve("0.0.0.0", "5760", tcp::resolver::passive));
   auto mi = MavlinkInterface(std::move(ap_socket));
 
-  (co_await mi.set_guided_mode_armed()).or_else([] (std::error_code e) {
-    spdlog::error("Couldn't set guided mode: {}", e.message());
-  });
+  mi.set_guided_mode_armed();
+  // (co_await mi.set_guided_mode_armed()).or_else([] (std::error_code e) {
+  //   spdlog::error("Couldn't set guided mode: {}", e.message());
+  // });
   bool done = false;
   if (not args.get<bool>("--no-avoid"))
     asio::co_spawn(this_exec, locate_obstacles(rs_dev, mi, std::span(fov)), asio::detached);
   asio::co_spawn(
-    this_exec, heartbeat_loop(mi), [](std::exception_ptr p, tResult<void> r) {
-      if (p) {
-        try {
-          std::rethrow_exception(p);
-        } catch (const std::exception& e) {
-          spdlog::error("Heartbeat coroutine threw exception: {}", e.what());
-        }
-      }
-      r.map_error([](std::error_code e) {
-        spdlog::error("Heartbeat coroutine faced error: {}: {}",
-                      e.category().name(),
-                      e.message());
-      });
-    });
-  asio::co_spawn(
     this_exec,
-    mi.receive_message_loop(),
+    mi.loop(),
     [](std::exception_ptr p, tResult<void> r) {
       if (p) {
         try {
           std::rethrow_exception(p);
         } catch (const std::exception& e) {
-          spdlog::error("receive_message_loop coroutine threw exception: {}",
+          spdlog::error("loop coroutine threw exception: {}",
                         e.what());
         }
       }
       r.map_error([](std::error_code e) {
-        spdlog::error("receive_message_loop coroutine faced error: {}: {}",
+        spdlog::error("loop coroutine faced error: {}: {}",
                       e.category().name(),
                       e.message());
       });
@@ -259,12 +245,12 @@ auto mission() -> asio::awaitable<void> {
                          std::plus<float>());
           current_target.location.emplace(ref_arrow);
 
-          co_await mi.set_target_position_local(std::span(forward_right_down));
+          mi.set_target_position_local(std::span(forward_right_down));
           continue;
         }
         
         std::array<float, 3> vel_forward_right_down{};
-        co_await mi.set_target_velocity(std::span(vel_forward_right_down));
+        mi.set_target_velocity(std::span(vel_forward_right_down));
         continue;
       }
 
@@ -275,7 +261,7 @@ auto mission() -> asio::awaitable<void> {
 
       // If no target is found, maintain heading and loop
       std::array<float, 3> vel_forward_right_down{};
-      co_await mi.set_target_velocity(std::span(vel_forward_right_down));
+      mi.set_target_velocity(std::span(vel_forward_right_down));
       continue;
     }
 
@@ -306,12 +292,12 @@ auto mission() -> asio::awaitable<void> {
                          begin(ref_arrow), std::plus<float>());
           current_target.location.emplace(ref_arrow);
 
-          co_await mi.set_target_position_local(std::span(forward_right_down));
+          mi.set_target_position_local(std::span(forward_right_down));
           continue;
         }
       }
       std::array<float, 3> vel_forward_right_down{};
-      co_await mi.set_target_velocity(std::span(vel_forward_right_down));
+      mi.set_target_velocity(std::span(vel_forward_right_down));
       continue;
     }
     if (current_target.type == Target::Type::ARROW_LOCKED or current_target.type == Target::Type::CONE_LOCKED) {
@@ -330,7 +316,7 @@ auto mission() -> asio::awaitable<void> {
       if (approach_distance < 10) {
         spdlog::critical("Target approach complete (distance {:f}), stopping", approach_distance);
         std::array<float, 3> stop_vel {0.0f, 0.0f, 0.0f};
-        co_await mi.set_target_velocity(std::span(stop_vel));
+        mi.set_target_velocity(std::span(stop_vel));
         timer.expires_after(10s);
         co_await timer.async_wait(use_nothrow_awaitable);
         // TODO: Change heading
