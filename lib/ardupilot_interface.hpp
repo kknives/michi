@@ -177,6 +177,20 @@ class MavlinkInterface
     spdlog::trace("State updated: {} {} {} {}", m_ap_state.m_lat_lon_alt, 
     m_ap_state.m_global_vel, m_ap_state.m_rpy, m_ap_state.m_rpy_vel);
   }
+  auto receive_message() -> asio::awaitable<tResult<void>> {
+    std::vector<uint8_t> buffer(8);
+    auto [error, len] = co_await m_uart.async_read_some(
+      asio::buffer(buffer), use_nothrow_awaitable);
+    if (error)
+      co_return make_unexpected(error);
+    mavlink_message_t msg;
+    mavlink_status_t status;
+    for (int i = 0; i < len; i++) {
+      if (mavlink_parse_char(m_channel, buffer[i], &msg, &status))
+        break;
+    }
+    handle_message(&msg);
+  }
 
 public:
   MavlinkInterface(I && sp)
@@ -185,9 +199,36 @@ public:
   {
     // m_uart.set_option(asio::serial_port_base::baud_rate(115200));
   }
+  auto loop() -> asio::awaitable<tResult<void>> {
+    mavlink_message_t hb_msg = heartbeat();
+    auto [error, written] = co_await send_message(hb_msg);
+    if (error) {
+      spdlog::error("Couldn't send first heartbeat, asio error: {}", error.message());
+      co_return make_unexpected(MavlinkErrc::FailedWrite);
+    }
+    auto last_heartbeat = steady_clock::now();
+    while (true) {
+      if (steady_clock::now() > last_heartbeat + 1s) {
+        hb_msg = heartbeat();
+        tie(error, written) = co_await send_message(hb_msg);
+        if (error) spdlog::error("Couldn't send heartbeat, asio error: {}", error.message());   
+      }
+      if (not m_msg_queue.empty()) {
+        auto this_msg = m_msg_queue.front();
+        tie(error, written) = co_await send_message(this_msg);
+        if (error) spdlog::error("Couldn't send msg, id: {}, asio error: {}", static_cast<unsigned int>(this_msg.msgid), error.message());   
+        m_msg_queue.pop();
+      }
+      auto result = co_await receive_message();
+      result.map_error([](std::error_code e) {
+        spdlog::error("Couldn't receive_message: {}: {}", e.category().name(), e.message());
+      });
+    }
+  }
   auto receive_message_loop() -> asio::awaitable<tResult<void>>
   {
     std::vector<uint8_t> buffer(8);
+    asio::steady_timer timer(co_await asio::this_coro::executor);
     while (true) {
       auto [error, len] = co_await m_uart.async_read_some(
         asio::buffer(buffer), use_nothrow_awaitable);
