@@ -101,6 +101,7 @@ class MavlinkInterface
 
   // The thing we want to get from AP
   ArdupilotState m_ap_state;
+  std::queue<mavlink_message_t> m_msg_queue;
 
   inline auto get_uptime() -> uint32_t
   {
@@ -313,7 +314,7 @@ public:
   auto global_linear_velocity() -> std::span<float, 3> const {
     return std::span(m_ap_state.m_global_vel);
   }
-  auto set_guided_mode_armed() -> asio::awaitable<tResult<void>> {
+  auto set_guided_mode_armed() -> void {
     mavlink_message_t msg;
     const uint16_t mav_cmd_do_set_mode = 176;
     for (int i = 0; i < 1; i++) {
@@ -333,15 +334,16 @@ public:
                                                     0,
                                                     0);
       spdlog::info("Sending guided");
-      auto [error, written] = co_await send_message(msg);
-      if (error) {
-        spdlog::error("Could not send set and arm GUIDED mode, asio error: {}", error.message());
-        co_return make_unexpected(MavlinkErrc::FailedWrite);
-      }
+      m_msg_queue.emplace(msg);
+      // auto [error, written] = co_await send_message(msg);
+      // if (error) {
+      //   spdlog::error("Could not send set and arm GUIDED mode, asio error: {}", error.message());
+      //   co_return make_unexpected(MavlinkErrc::FailedWrite);
+      // }
     }
   }
   auto set_target_velocity(std::span<float, 3> velxyz)
-    -> asio::awaitable<tResult<void>>
+    -> void
   {
     mavlink_message_t msg;
     mavlink_msg_set_position_target_local_ned_pack_chan(
@@ -365,15 +367,16 @@ public:
       INVALID,
       INVALID,
       INVALID);
-    auto [error, written] = co_await send_message(msg);
-    if (error) {
-      spdlog::error("Could not send set_target, asio error: {}\n",
-                    error.message());
-      co_return make_unexpected(MavlinkErrc::FailedWrite);
-    }
+    m_msg_queue.emplace(msg);
+    // auto [error, written] = co_await send_message(msg);
+    // if (error) {
+    //   spdlog::error("Could not send set_target, asio error: {}\n",
+    //                 error.message());
+    //   co_return make_unexpected(MavlinkErrc::FailedWrite);
+    // }
   }
   auto set_target_position_local(std::span<float, 3> xyz)
-    -> asio::awaitable<tResult<void>>
+    -> void
   {
     mavlink_message_t msg;
     mavlink_msg_set_position_target_local_ned_pack_chan(
@@ -397,17 +400,18 @@ public:
       INVALID,
       INVALID,
       INVALID);
-    auto [error, written] = co_await send_message(msg);
-    // TODO: add cancellation and time out here
-    if (error) {
-      spdlog::error("Could not send set_target, asio error: {}",
-                    error.message());
-      co_return make_unexpected(MavlinkErrc::FailedWrite);
-    }
+    m_msg_queue.emplace(msg);
+    // auto [error, written] = co_await send_message(msg);
+    // // TODO: add cancellation and time out here
+    // if (error) {
+    //   spdlog::error("Could not send set_target, asio error: {}",
+    //                 error.message());
+    //   co_return make_unexpected(MavlinkErrc::FailedWrite);
+    // }
   }
   auto set_target_attitude(std::span<float, 4> rotation_quaternion,
                            float yaw_rate,
-                           float thrust) -> asio::awaitable<tResult<void>>
+                           float thrust) -> void
   {
     mavlink_message_t msg;
     const int8_t USE_YAWRATE_ATTITUDE_THRUST = 0x23;
@@ -426,18 +430,19 @@ public:
                                               yaw_rate,
                                               thrust,
                                               unused_thrust_body_field);
-    auto [error, written] = co_await send_message(msg);
-    if (error) {
-      spdlog::error("Could not send set_attitude, asio error: {}\n",
-                    error.message());
-      co_return make_unexpected(MavlinkErrc::FailedWrite);
-    }
+    m_msg_queue.emplace(msg);
+    // auto [error, written] = co_await send_message(msg);
+    // if (error) {
+    //   spdlog::error("Could not send set_attitude, asio error: {}\n",
+    //                 error.message());
+    //   co_return make_unexpected(MavlinkErrc::FailedWrite);
+    // }
   }
   auto set_obstacle_distance(std::span<uint16_t, 72> distances,
                              float increment,
                              float min_distance,
                              float max_distance,
-                             float offset) -> asio::awaitable<tResult<void>>
+                             float offset) -> void
   {
     mavlink_message_t msg;
     mavlink_msg_obstacle_distance_pack_chan(m_system_id,
@@ -453,14 +458,15 @@ public:
                                             increment,
                                             offset,
                                             MAV_FRAME_BODY_FRD);
-    auto [error, written] = co_await send_message(msg);
-    if (error) {
-      spdlog::error("Could not send obstacle_distance, asio error: {}\n",
-                   error.message());
-      co_return make_unexpected(MavlinkErrc::FailedWrite);
-    }
+    m_msg_queue.emplace(msg);
+    // auto [error, written] = co_await send_message(msg);
+    // if (error) {
+    //   spdlog::error("Could not send obstacle_distance, asio error: {}\n",
+    //                error.message());
+    //   co_return make_unexpected(MavlinkErrc::FailedWrite);
+    // }
   }
-  auto heartbeat() -> asio::awaitable<tResult<void>>
+  auto heartbeat() -> mavlink_message_t
   {
     mavlink_message_t msg;
     mavlink_msg_heartbeat_pack_chan(m_system_id,
@@ -472,13 +478,14 @@ public:
                                     0,
                                     0,
                                     MAV_STATE_UNINIT);
-    auto [error, written] = co_await send_message(msg);
-    if (error) {
-      spdlog::error("Could not send heartbeat, asio error: {}",
-                    error.message());
-      co_return make_unexpected(MavlinkErrc::FailedWrite);
-    }
-    spdlog::info("Sent heartbeat");
+    return msg;
+    // auto [error, written] = co_await send_message(msg);
+    // if (error) {
+    //   spdlog::error("Could not send heartbeat, asio error: {}",
+    //                 error.message());
+    //   co_return make_unexpected(MavlinkErrc::FailedWrite);
+    // }
+    // spdlog::info("Sent heartbeat");
   }
 };
 
