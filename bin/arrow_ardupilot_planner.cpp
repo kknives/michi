@@ -172,7 +172,7 @@ auto get_depth_lock(rs2::frame& depth_frame, std::span<float, 4> rect_vertices) 
   return distance;
 }
 
-auto mission() -> asio::awaitable<void> {
+auto mission(auto& mi) -> asio::awaitable<void> {
   auto this_exec = co_await asio::this_coro::executor;
 
   auto [rs_pipe, fovh, fovv] = *setup_device().or_else([] (std::error_code e) {
@@ -181,31 +181,10 @@ auto mission() -> asio::awaitable<void> {
   std::array<float, 2> fov = {fovh, fovv};
   auto rs_dev = RealsenseDevice(rs_pipe);
   auto classifier = ClassificationModel(MobilenetArrowClassifier(args.get("--model")));
-  tcp::socket ap_socket(this_exec);
-  ap_socket.connect(*tcp::resolver(this_exec).resolve("0.0.0.0", "5760", tcp::resolver::passive));
-  auto mi = std::make_shared<MavlinkInterface<tcp::socket>>((std::move(ap_socket)));
 
   bool done = false;
   if (not args.get<bool>("--no-avoid"))
     asio::co_spawn(this_exec, locate_obstacles(rs_dev, mi, std::span(fov)), asio::detached);
-  // asio::co_spawn(
-  //   this_exec,
-  //   mi->loop(),
-  //   [](std::exception_ptr p, tResult<void> r) {
-  //     if (p) {
-  //       try {
-  //         std::rethrow_exception(p);
-  //       } catch (const std::exception& e) {
-  //         spdlog::error("loop coroutine threw exception: {}",
-  //                       e.what());
-  //       }
-  //     }
-  //     r.map_error([](std::error_code e) {
-  //       spdlog::error("loop coroutine faced error: {}: {}",
-  //                     e.category().name(),
-  //                     e.message());
-  //     });
-  //   });
 
   co_await mi->set_guided_mode_armed();
   asio::steady_timer timer(this_exec);
@@ -215,7 +194,6 @@ auto mission() -> asio::awaitable<void> {
   spdlog::info("Starting mission loop");
   // Mission Loop
   for (;;) {
-    co_await mi->loop();
     if (current_target.type == Target::Type::HEADING) {
       // Get the current frame and process it for potential targets
       auto rgb_frame = co_await rs_dev.async_get_rgb_frame(this_exec);
@@ -330,13 +308,8 @@ auto mission() -> asio::awaitable<void> {
 }
 
 extern "C" void dump_stacktrace(uintptr_t const);
-void stacktrace_terminate() {
-  std::cout << "too baddd" << '\n';
-  dump_stacktrace(reinterpret_cast<uintptr_t>(mission));
-  std::abort();
-}
 int main(int argc, char* argv[]) {
-  std::set_terminate(stacktrace_terminate);
+  dump_stacktrace(reinterpret_cast<uintptr_t>(main));
   args.add_argument("ardupilot").help("Serial port (eg. /dev/ttyUSB0) connected to Pixhawk's TELEMETRY2");
   args.add_argument("-m", "--model").default_value(std::string("lib/saved_model_checkpoint4.onnx")).help("model to use for arrow classification");
   args.add_argument("--no-avoid").default_value(false).implicit_value(true).help("Disable obstacle avoidance behaviour");
@@ -365,7 +338,30 @@ int main(int argc, char* argv[]) {
   asio::io_context io_ctx;
   spdlog::trace("asio io_context setup");
 
-  asio::co_spawn(io_ctx, mission(), asio::detached);
+  tcp::socket ap_socket(io_ctx);
+  ap_socket.connect(*tcp::resolver(io_ctx).resolve("0.0.0.0", "5760", tcp::resolver::passive));
+  auto mi = std::make_shared<MavlinkInterface<tcp::socket>>((std::move(ap_socket)));
+
+  asio::co_spawn(io_ctx, mission(mi), asio::detached);
+  asio::co_spawn(
+    io_ctx,
+    mi->loop(),
+    [](std::exception_ptr p, tResult<void> r) {
+      if (p) {
+        try {
+          std::rethrow_exception(p);
+        } catch (const std::exception& e) {
+          spdlog::error("Mavlink loop coroutine threw exception: {}",
+                        e.what());
+        }
+      }
+      r.map_error([](std::error_code e) {
+        spdlog::error("Mavlink loop coroutine faced error: {}: {}",
+                      e.category().name(),
+                      e.message());
+      });
+    });
+
 
   spdlog::trace("running asio io_context");
   io_ctx.run();
