@@ -228,24 +228,6 @@ public:
       });
     }
   }
-  auto receive_message_loop() -> asio::awaitable<tResult<void>>
-  {
-    std::vector<uint8_t> buffer(8);
-    asio::steady_timer timer(co_await asio::this_coro::executor);
-    while (true) {
-      auto [error, len] = co_await m_uart.async_read_some(
-        asio::buffer(buffer), use_nothrow_awaitable);
-      if (error)
-        co_return make_unexpected(error);
-      mavlink_message_t msg;
-      mavlink_status_t status;
-      for (int i = 0; i < len; i++) {
-        if (mavlink_parse_char(m_channel, buffer[i], &msg, &status))
-          break;
-      }
-      handle_message(&msg);
-    }
-  }
   auto init() -> asio::awaitable<tResult<void>>
   {
     using std::ignore;
@@ -547,16 +529,3 @@ public:
     // spdlog::info("Sent heartbeat");
   }
 };
-
-auto
-heartbeat_loop(auto& mi) -> asio::awaitable<tResult<void>>
-{
-  asio::steady_timer timer(co_await asio::this_coro::executor);
-  while (true) {
-    timer.expires_at(steady_clock::now() + 1s);
-    co_await timer.async_wait(use_nothrow_awaitable);
-    auto result = co_await mi.heartbeat();
-    if (not result)
-      co_return result;
-  }
-}
