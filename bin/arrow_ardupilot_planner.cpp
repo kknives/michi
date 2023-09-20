@@ -109,7 +109,8 @@ tPclPtr points_to_pcl(const rs2::points& points)
     return cloud;
 }
 
-auto locate_obstacles(RealsenseDevice& rs_dev, auto& mi, std::span<float, 2> fov) -> asio::awaitable<void> {
+auto locate_obstacles(std::shared_ptr<RealsenseDevice> rs_dev, auto& mi, std::span<float, 2> fov) -> asio::awaitable<void> {
+  spdlog::debug("Inside locate_obstacles");
   asio::steady_timer timer(co_await asio::this_coro::executor);
   
   tPclPtr cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>), obstacle_cloud(new pcl::PointCloud<pcl::PointXYZ>);
@@ -121,7 +122,8 @@ auto locate_obstacles(RealsenseDevice& rs_dev, auto& mi, std::span<float, 2> fov
   pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
   pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
   for (;;) {
-    auto points = co_await rs_dev.async_get_points(co_await asio::this_coro::executor);
+    auto points = co_await rs_dev->async_get_points();
+    spdlog::debug("Got points");
     auto pcl_points = points_to_pcl(points);
     pass_filter.setInputCloud(pcl_points);
     pass_filter.setFilterFieldName("z");
@@ -172,20 +174,11 @@ auto get_depth_lock(rs2::frame& depth_frame, std::span<float, 4> rect_vertices) 
   return distance;
 }
 
-auto mission(auto& mi) -> asio::awaitable<void> {
+auto mission(auto& mi, std::shared_ptr<RealsenseDevice> rs_dev) -> asio::awaitable<void> {
   auto this_exec = co_await asio::this_coro::executor;
 
-  auto [rs_pipe, fovh, fovv] = *setup_device().or_else([] (std::error_code e) {
-    spdlog::error("Couldn't setup realsense device: {}", e.message());
-  });
-  std::array<float, 2> fov = {fovh, fovv};
-  auto rs_dev = RealsenseDevice(rs_pipe);
   auto classifier = ClassificationModel(MobilenetArrowClassifier(args.get("--model")));
-
   bool done = false;
-  if (not args.get<bool>("--no-avoid"))
-    asio::co_spawn(this_exec, locate_obstacles(rs_dev, mi, std::span(fov)), asio::detached);
-
   co_await mi->set_guided_mode_armed();
   asio::steady_timer timer(this_exec);
   Target current_target{.type=Target::Type::HEADING, .heading=0.0f};
@@ -196,8 +189,8 @@ auto mission(auto& mi) -> asio::awaitable<void> {
   for (;;) {
     if (current_target.type == Target::Type::HEADING) {
       // Get the current frame and process it for potential targets
-      auto rgb_frame = co_await rs_dev.async_get_rgb_frame(this_exec);
-      auto depth_frame = co_await rs_dev.async_get_depth_frame();
+      auto rgb_frame = co_await rs_dev->async_get_rgb_frame();
+      auto depth_frame = co_await rs_dev->async_get_depth_frame();
       // If there's a segfault, this maybe to blame, removing const from const void*
       cv::Mat image(cv::Size(640, 480), CV_8UC3, const_cast<void*>(rgb_frame.get_data()), cv::Mat::AUTO_STEP);
       auto object_found = classify(classifier, image);
@@ -250,8 +243,8 @@ auto mission(auto& mi) -> asio::awaitable<void> {
       // Lock the target by setting a target on AP
       // If not, set the velocity low, match heading and carefully approach target
 
-      auto rgb_frame = co_await rs_dev.async_get_rgb_frame(this_exec);
-      auto depth_frame = co_await rs_dev.async_get_depth_frame();
+      auto rgb_frame = co_await rs_dev->async_get_rgb_frame();
+      auto depth_frame = co_await rs_dev->async_get_depth_frame();
       cv::Mat image(cv::Size(640, 480), CV_8UC3, const_cast<void*>(rgb_frame.get_data()));
       size_t object_found = classify(classifier, image);
       // Arrows found
@@ -342,7 +335,37 @@ int main(int argc, char* argv[]) {
   ap_socket.connect(*tcp::resolver(io_ctx).resolve("0.0.0.0", "5760", tcp::resolver::passive));
   auto mi = std::make_shared<MavlinkInterface<tcp::socket>>((std::move(ap_socket)));
 
-  asio::co_spawn(io_ctx, mission(mi), asio::detached);
+  auto [rs_pipe, fovh, fovv] = *setup_device().or_else([] (std::error_code e) {
+    spdlog::error("Couldn't setup realsense device: {}", e.message());
+  });
+  std::array<float, 2> fov = {fovh, fovv};
+  auto rs_dev = std::make_shared<RealsenseDevice>(rs_pipe, io_ctx);
+
+  if (not args.get<bool>("--no-avoid"))
+    asio::co_spawn(io_ctx, locate_obstacles(rs_dev, mi, std::span(fov)), 
+    [](std::exception_ptr p) {
+      if (p) {
+        try {
+          std::rethrow_exception(p);
+        } catch (const std::exception& e) {
+          spdlog::error("locate_obstacles coroutine threw exception: {}",
+                        e.what());
+        }
+      }
+    });
+  asio::co_spawn(
+    io_ctx,
+    mission(mi, rs_dev),
+    [](std::exception_ptr p) {
+      if (p) {
+        try {
+          std::rethrow_exception(p);
+        } catch (const std::exception& e) {
+          spdlog::error("Mission coroutine threw exception: {}",
+                        e.what());
+        }
+      }
+  });
   asio::co_spawn(
     io_ctx,
     mi->loop(),
@@ -360,7 +383,7 @@ int main(int argc, char* argv[]) {
                       e.category().name(),
                       e.message());
       });
-    });
+  });
 
 
   spdlog::trace("running asio io_context");
