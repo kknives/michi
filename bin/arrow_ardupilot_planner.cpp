@@ -285,6 +285,9 @@ auto mission(auto& mi, std::shared_ptr<RealsenseDevice> rs_dev) -> asio::awaitab
         0.0f,
         std::plus<>{},
         [](const float& a, const float& b) { return (a - b) * (a - b); });
+      timer.expires_after(30ms);
+      co_await timer.async_wait(use_nothrow_awaitable);
+      // std::cout << "AD:" << approach_distance <<'\n';
       if (approach_distance < 10) {
         spdlog::critical("Target approach complete (distance {:f}), stopping", approach_distance);
         std::array<float, 3> stop_vel {0.0f, 0.0f, 0.0f};
