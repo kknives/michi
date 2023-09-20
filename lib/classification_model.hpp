@@ -4,6 +4,7 @@
 #include <memory>
 class ClassificationModel {
   private:
+  // Design
   struct dClassification{
     virtual ~dClassification() {}
     virtual size_t classify(cv::Mat& image) = 0;
@@ -11,6 +12,7 @@ class ClassificationModel {
   };
 
   template <typename T>
+  // Concrete
   struct cClassification : public dClassification {
     size_t classify(cv::Mat& image) override {
       return model_classify(m_value, image);

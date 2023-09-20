@@ -23,8 +23,6 @@
 #include <librealsense2/rs.hpp>
 #include <librealsense2/rsutil.h>
 
-#include <asio.hpp>
-
 using namespace std::literals::chrono_literals;
 template <typename T>
 using tResult = tl::expected<T, std::error_code>;
@@ -85,41 +83,45 @@ auto setup_device() noexcept -> tResult<std::tuple<rs2::pipeline, float, float>>
 
 class RealsenseDevice {
   // TODO: remove io_ctx
-  auto async_update(const asio::any_io_executor& io_ctx) -> asio::awaitable<void> {
-    asio::steady_timer timer(co_await asio::this_coro::executor);
+  auto async_update() -> asio::awaitable<void> {
+    asio::steady_timer timer(m_io_ctx);
     while (not pipe.poll_for_frames(&frames)) {
       timer.expires_after(34ms);
       co_await timer.async_wait(use_nothrow_awaitable);
+      spdlog::debug("Timer expired");
     }
   }
   
   public:
-  RealsenseDevice(rs2::pipeline& pipe) : pipe{pipe} {}
-  auto async_get_rgb_frame(const asio::any_io_executor& io_ctx) -> asio::awaitable<rs2::frame> {
+  RealsenseDevice(rs2::pipeline& pipe, asio::io_context& io_ctx) : pipe{pipe}, m_io_ctx(io_ctx) {}
+  auto async_get_rgb_frame() -> asio::awaitable<rs2::frame> {
     rs2::frame rgb_frame = frames.first_or_default(RS2_STREAM_COLOR);
-    while (not rgb_frame) {
-      co_await async_update(io_ctx);
+    do {
+      co_await async_update();
       rgb_frame = frames.first_or_default(RS2_STREAM_COLOR);
-    }
+    } while (not rgb_frame);
+    spdlog::debug("rgb_frame size {}", rgb_frame.get_data_size());
     co_return rgb_frame;
   }
   auto async_get_depth_frame() -> asio::awaitable<rs2::frame> {
     rs2::frame depth = frames.first_or_default(RS2_STREAM_DEPTH);
-    while (not depth) {
-      co_await async_update(co_await asio::this_coro::executor);
+    do {
+      co_await async_update();
       depth = frames.first_or_default(RS2_STREAM_DEPTH);
-    }
+    } while (not depth);
     // Decimation > Spatial > Temporal > Threshold
     depth = dec_filter.process(depth);
     depth = temp_filter.process(depth);
+    spdlog::debug("Depth Frame# {}", depth.get_frame_number());
     co_return depth;
   }
-  auto async_get_points(const asio::any_io_executor& io_ctx) -> asio::awaitable<rs2::points>{
+  auto async_get_points() -> asio::awaitable<rs2::points>{
     rs2::frame depth = co_await async_get_depth_frame();
     co_return pc.calculate(depth);
   }
   private:
   rs2::pipeline pipe;
+  asio::io_context& m_io_ctx;
   rs2::frameset frames;
 
   rs2::decimation_filter dec_filter;
