@@ -155,7 +155,7 @@ auto locate_obstacles(std::shared_ptr<RealsenseDevice> rs_dev, auto& mi, std::sp
   }
 }
 auto get_depth_lock(rs2::frame& depth_frame, std::span<float, 4> rect_vertices) -> std::optional<float> {
-  cv::Point2f top_left(rect_vertices[0], rect_vertices[1]), bottom_right(rect_vertices[2], rect_vertices[3]);
+  cv::Point2f top_left(rect_vertices[0]*640, rect_vertices[1]*480), bottom_right(rect_vertices[2]*640, rect_vertices[3]*480);
   cv::Mat depth_frame_mat(cv::Size(640, 480), CV_8UC1, const_cast<void*>(depth_frame.get_data()), cv::Mat::AUTO_STEP);
   auto cropped = depth_frame_mat(cv::Rect(top_left, bottom_right));
 
