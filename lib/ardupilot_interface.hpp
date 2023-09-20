@@ -2,7 +2,9 @@
 
 #include "expected.hpp"
 #include <algorithm>
+#include <concepts>
 #include <queue>
+// #define ASIO_ENABLE_HANDLER_TRACKING 1
 #include "common.hpp"
 #include <chrono>
 #include <asio/serial_port.hpp>
@@ -82,6 +84,7 @@ struct ArdupilotState {
 };
 
 template <typename I>
+  requires std::convertible_to<I, tcp::socket> || std::convertible_to<I, asio::serial_port>
 class MavlinkInterface
 {
   I m_uart;
@@ -197,6 +200,8 @@ public:
     // m_uart.set_option(asio::serial_port_base::baud_rate(115200));
   }
   auto loop() -> asio::awaitable<tResult<void>> {
+    asio::steady_timer timer(m_uart.get_executor());
+
     mavlink_message_t hb_msg = heartbeat();
     auto [error, written] = co_await send_message(hb_msg);
     if (error) {
@@ -226,6 +231,8 @@ public:
       result.map_error([](std::error_code e) {
         spdlog::error("Couldn't receive_message: {}: {}", e.category().name(), e.message());
       });
+      timer.expires_after(80ms);
+      co_await timer.async_wait(use_nothrow_awaitable);
     }
   }
   auto init() -> asio::awaitable<tResult<void>>
