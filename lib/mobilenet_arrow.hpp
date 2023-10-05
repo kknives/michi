@@ -58,7 +58,6 @@ public:
     cv::cvtColor(image, image, cv::COLOR_BGR2RGB);
 
     // Convert to NHWC
-    cv::transpose(image, image);
     image = image.reshape(
       1); // Use OpenCV's NCHW behaviour for adding the N "channel"
     assert(image.size.p[0] * image.size.p[1] ==

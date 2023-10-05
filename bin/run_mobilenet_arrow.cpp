@@ -93,9 +93,8 @@ int main(int argc, ORTCHAR_T* argv[]) {
   cv::Mat image = cv::imread(argv[2]);
   cv::cvtColor(image, image, cv::COLOR_BGR2RGB);
 
-  cv::Mat nhwcImage;
-  cv::transpose(image, nhwcImage);
-  nhwcImage = nhwcImage.reshape(1);
+  image = image.reshape(1);
+  cv::Mat nhwcImage = image;
 
   std::cout << "Image after cv: " << nhwcImage.size << '\n';
   input_tensor_values.assign(nhwcImage.begin<uint8_t>(), nhwcImage.end<uint8_t>());
