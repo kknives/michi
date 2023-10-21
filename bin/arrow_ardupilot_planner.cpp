@@ -3,6 +3,7 @@
 #include "ardupilot_interface.hpp"
 #include <opencv4/opencv2/opencv.hpp>
 #include "common.hpp"
+#include "opencv2/core.hpp"
 #include "realsense_generator.hpp"
 #include "classification_model.hpp"
 #include "mobilenet_arrow.hpp"
@@ -160,16 +161,14 @@ auto get_depth_lock(rs2::frame& depth_frame, std::span<float, 4> rect_vertices) 
   auto cropped = depth_frame_mat(cv::Rect(top_left, bottom_right));
 
   int valid_depths = 0;
-  int mean_depth = 0;
   using tPixel = cv::Point_<uint8_t>;
-  cropped.forEach<tPixel>([&valid_depths, &mean_depth](const tPixel &p, const int* pos) {
-    valid_depths += (p.x != 0);
-    mean_depth += p.x;
-  });
+  valid_depths = cv::countNonZero(cropped);
   std::optional<float> distance;
   if (valid_depths >= (0.5*cropped.total())) {
+    std::cout << cv::sum(cropped) << '\n';
+    int depth_sum = cv::sum(cropped)[0];
     // Lock available
-    distance.emplace(mean_depth/cropped.total());
+    distance.emplace(depth_sum/valid_depths);
   }
   return distance;
 }
