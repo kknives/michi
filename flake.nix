@@ -54,6 +54,7 @@
             nativeBuildInputs = [ cmake gcc13 pkgconfig ];
             buildInputs = [
               packages.librealsense.dev
+              eigen
               pcl
               boost.dev
               opencv
