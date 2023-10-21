@@ -302,9 +302,7 @@ auto mission(auto& mi, std::shared_ptr<RealsenseDevice> rs_dev) -> asio::awaitab
   }
 }
 
-void dump_stacktrace(uintptr_t const) {}
 int main(int argc, char* argv[]) {
-  dump_stacktrace(reinterpret_cast<uintptr_t>(main));
   args.add_argument("ardupilot").help("Serial port (eg. /dev/ttyUSB0) connected to Pixhawk's TELEMETRY2");
   args.add_argument("-m", "--model").default_value(std::string("lib/saved_model_checkpoint4.onnx")).help("model to use for arrow classification");
   args.add_argument("--no-avoid").default_value(false).implicit_value(true).help("Disable obstacle avoidance behaviour");
