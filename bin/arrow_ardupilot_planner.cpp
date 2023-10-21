@@ -303,7 +303,7 @@ auto mission(auto& mi, std::shared_ptr<RealsenseDevice> rs_dev) -> asio::awaitab
   }
 }
 
-extern "C" void dump_stacktrace(uintptr_t const);
+void dump_stacktrace(uintptr_t const) {}
 int main(int argc, char* argv[]) {
   dump_stacktrace(reinterpret_cast<uintptr_t>(main));
   args.add_argument("ardupilot").help("Serial port (eg. /dev/ttyUSB0) connected to Pixhawk's TELEMETRY2");
