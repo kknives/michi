@@ -11,6 +11,7 @@
 #include <optional>
 #include <span>
 #include <spdlog/spdlog.h>
+#include "classification_model.hpp"
 
 const std::array<const char*, 1> MOBILENET_ARROW_INPUT_NAMES{ "input_tensor" };
 const std::array<int64_t, 4> MOBILENET_ARROW_INPUT_SHAPE{ 1, 480, 640, 3 };
@@ -30,6 +31,18 @@ product(const std::span<const std::int64_t, N> v)
   return total;
 }
 
+std::array<ClassificationModel::Detection, 4> WASEEM2_CLASSMAP = {
+  ClassificationModel::Detection::NONE,
+  ClassificationModel::Detection::CONE,
+  ClassificationModel::Detection::ARROW_LEFT,
+  ClassificationModel::Detection::ARROW_RIGHT,
+};
+std::array<ClassificationModel::Detection, 4> MOHNISH4_CLASSMAP= {
+  ClassificationModel::Detection::NONE,
+  ClassificationModel::Detection::ARROW_LEFT,
+  ClassificationModel::Detection::ARROW_RIGHT,
+  ClassificationModel::Detection::CONE,
+};
 class MobilenetArrowClassifier
 {
   Ort::Env m_env;
@@ -39,19 +52,29 @@ class MobilenetArrowClassifier
   Ort::AllocatorWithDefaultOptions m_allocator;
   std::array<Ort::Value, 1> m_input_tensor;
   std::optional<std::tuple<size_t, std::vector<Ort::Value>>> m_outputs;
+  std::array<ClassificationModel::Detection, 4>& m_result_map;
 
 public:
-  MobilenetArrowClassifier(std::string const& s)
+  MobilenetArrowClassifier(
+    std::string const& s,
+    std::array<ClassificationModel::Detection, 4>& class_to_detection_map)
     : m_env(ORT_LOGGING_LEVEL_WARNING, "MobilenetArrowClassifier")
     , m_session(m_env, s.c_str(), m_session_options)
     , m_input_tensor{ Ort::Value::CreateTensor<uint8_t>(
         m_allocator,
         MOBILENET_ARROW_INPUT_SHAPE.data(),
         MOBILENET_ARROW_INPUT_SHAPE.size()) }
+    , m_result_map(class_to_detection_map)
   {
     spdlog::info("Initialized and loaded MobilenetArrow ONNX session");
   }
-  friend size_t model_classify(MobilenetArrowClassifier& mac, cv::Mat& image, float threshold=0.6f)
+  static MobilenetArrowClassifier make_waseem2_model(const std::string& s) {
+    return MobilenetArrowClassifier(s, WASEEM2_CLASSMAP);
+  }
+  static MobilenetArrowClassifier make_mohnish4_model(const std::string& s) {
+    return MobilenetArrowClassifier(s, MOHNISH4_CLASSMAP);
+  }
+  friend ClassificationModel::Detection model_classify(MobilenetArrowClassifier& mac, cv::Mat& image, float threshold=0.6f)
   {
     mac.m_outputs.reset();
     // Image preprocessing
@@ -83,11 +106,11 @@ public:
                  best_detection,
                  classes[best_detection],
                  scores[best_detection]);
-    if (scores[best_detection] < threshold) return 0;
+    if (scores[best_detection] < threshold) return ClassificationModel::Detection::NONE;
 
     mac.m_outputs.emplace(std::make_pair(
       best_detection, std::move(output_tensors)));
-    return classes[best_detection];
+    return mac.m_result_map[classes[best_detection]];
   }
   friend std::array<float, 4> model_get_bounding_box(const MobilenetArrowClassifier& mac)
   {
