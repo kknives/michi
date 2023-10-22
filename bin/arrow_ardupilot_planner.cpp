@@ -192,9 +192,9 @@ auto mission(auto& mi, std::shared_ptr<RealsenseDevice> rs_dev) -> asio::awaitab
       auto depth_frame = co_await rs_dev->async_get_depth_frame();
       // If there's a segfault, this maybe to blame, removing const from const void*
       cv::Mat image(cv::Size(640, 480), CV_8UC3, const_cast<void*>(rgb_frame.get_data()), cv::Mat::AUTO_STEP);
-      auto object_found = classify(classifier, image);
+      auto object_found = classify(classifier, image, args.get<float>("-t"));
 
-      if (object_found == 1 or object_found == 2) {
+      if (object_found) {
         spdlog::critical("Detected arrow, type {:d}", object_found);
         current_target = Target{.type=Target::Type::ARROW_SIGHTED};
         // Arrow found
@@ -245,9 +245,9 @@ auto mission(auto& mi, std::shared_ptr<RealsenseDevice> rs_dev) -> asio::awaitab
       auto rgb_frame = co_await rs_dev->async_get_rgb_frame();
       auto depth_frame = co_await rs_dev->async_get_depth_frame();
       cv::Mat image(cv::Size(640, 480), CV_8UC3, const_cast<void*>(rgb_frame.get_data()));
-      size_t object_found = classify(classifier, image);
+      auto object_found = classify(classifier, image, args.get<float>("-t"));
       // Arrows found
-      if (object_found == 1 or object_found == 2) {
+      if (object_found) {
         spdlog::critical("Detected arrow, type {:d}", object_found);
         std::array<float, 4> crop_rectangle = get_bounding_box(classifier);
         auto lock_distance = get_depth_lock(depth_frame, crop_rectangle);
@@ -306,6 +306,7 @@ int main(int argc, char* argv[]) {
   args.add_argument("ardupilot").help("Serial port (eg. /dev/ttyUSB0) connected to Pixhawk's TELEMETRY2");
   args.add_argument("-m", "--model").default_value(std::string("lib/saved_model_checkpoint4.onnx")).help("model to use for arrow classification");
   args.add_argument("--no-avoid").default_value(false).implicit_value(true).help("Disable obstacle avoidance behaviour");
+  args.add_argument("-t", "--threshold").default_value(0.3f).help("Threshold for arrow detections (confidence > threshold => arrow detected)");
 
   int log_verbosity = 0;
   args.add_argument("-V", "--verbose")

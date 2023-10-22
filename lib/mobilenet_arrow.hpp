@@ -51,7 +51,7 @@ public:
   {
     spdlog::info("Initialized and loaded MobilenetArrow ONNX session");
   }
-  friend size_t model_classify(MobilenetArrowClassifier& mac, cv::Mat& image)
+  friend size_t model_classify(MobilenetArrowClassifier& mac, cv::Mat& image, float threshold=0.6f)
   {
     mac.m_outputs.reset();
     // Image preprocessing
@@ -83,6 +83,7 @@ public:
                  best_detection,
                  classes[best_detection],
                  scores[best_detection]);
+    if (scores[best_detection] < threshold) return 0;
 
     mac.m_outputs.emplace(std::make_pair(
       best_detection, std::move(output_tensors)));
