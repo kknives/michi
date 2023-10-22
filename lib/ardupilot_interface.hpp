@@ -25,6 +25,7 @@ using asio::ip::tcp;
 
 enum class MavlinkErrc
 {
+  Success = 0,
   NoHeartbeat = 1, // System Failure
   NoCommandAck,
   FailedWrite,
@@ -179,12 +180,14 @@ class MavlinkInterface
     spdlog::trace("State updated: {} {} {} {}", m_ap_state.m_lat_lon_alt, 
     m_ap_state.m_global_vel, m_ap_state.m_rpy, m_ap_state.m_rpy_vel);
   }
-  auto receive_message() -> asio::awaitable<tResult<void>> {
+  auto receive_message() -> asio::awaitable<std::error_code> {
     std::vector<uint8_t> buffer(MAVLINK_MAX_PACKET_LEN);
     auto [error, len] = co_await m_uart.async_read_some(
       asio::buffer(buffer), use_nothrow_awaitable);
-    if (error)
-      co_return make_unexpected(error);
+    if (error) {
+      spdlog::error("Read from m_uart failed, asio error: {}", error.message());   
+      co_return error;
+    }
     mavlink_message_t msg;
     mavlink_status_t status;
     for (int i = 0; i < len; i++) {
@@ -192,6 +195,7 @@ class MavlinkInterface
         break;
     }
     handle_message(&msg);
+    co_return MavlinkErrc::Success;
   }
 
 public:
@@ -235,10 +239,10 @@ public:
           co_return make_unexpected(MavlinkErrc::FailedWrite);
         }
       }
-      auto result = co_await receive_message();
-      result.map_error([](std::error_code e) {
-        spdlog::error("Couldn't receive_message: {}: {}", e.category().name(), e.message());
-      });
+      auto error = co_await receive_message();
+      if (error) {
+        spdlog::error("Couldn't receive_message: {}: {}", error.category().name(), error.message());
+      }
       timer.expires_after(80ms);
       co_await timer.async_wait(use_nothrow_awaitable);
     }
