@@ -9,6 +9,7 @@
 #include <chrono>
 #include <asio/serial_port.hpp>
 #include <asio/this_coro.hpp>
+#include <asio/experimental/channel.hpp>
 #include <asio/write.hpp>
 #include <chrono>
 #include <cmath>
@@ -104,7 +105,8 @@ class MavlinkInterface
 
   // The thing we want to get from AP
   ArdupilotState m_ap_state;
-  std::queue<mavlink_message_t> m_msg_queue;
+  size_t REQUESTS_QUEUE_SIZE = 25;
+  asio::experimental::channel<void(asio::error_code, mavlink_message_t)> m_ap_requests;
 
   inline auto get_uptime() -> uint32_t
   {
@@ -193,13 +195,15 @@ class MavlinkInterface
   }
 
 public:
-  MavlinkInterface(I && sp)
+  MavlinkInterface(I&& sp)
     : m_uart{ std::move(sp) }
     , m_start{ steady_clock::now() }
+    , m_ap_requests(m_uart.get_executor(), REQUESTS_QUEUE_SIZE)
   {
     // m_uart.set_option(asio::serial_port_base::baud_rate(115200));
   }
-  auto loop() -> asio::awaitable<tResult<void>> {
+  auto loop() -> asio::awaitable<tResult<void>>
+  {
     asio::steady_timer timer(m_uart.get_executor());
 
     mavlink_message_t hb_msg = heartbeat();
@@ -218,14 +222,18 @@ public:
           co_return make_unexpected(MavlinkErrc::FailedWrite);
         }
       }
-      if (not m_msg_queue.empty()) {
-        auto this_msg = m_msg_queue.front();
+      if (not m_ap_requests.ready()) {
+        mavlink_message_t this_msg;
+        tie(error, this_msg) = co_await m_ap_requests.async_receive(use_nothrow_awaitable);
+        if (error) {
+          spdlog::trace("Couldn't send msg, id: {}, asio error: {}", static_cast<unsigned int>(this_msg.msgid), error.message());   
+          co_return make_unexpected(MavlinkErrc::FailedWrite);
+        }
         tie(error, written) = co_await send_message(this_msg);
         if (error) {
           spdlog::trace("Couldn't send msg, id: {}, asio error: {}", static_cast<unsigned int>(this_msg.msgid), error.message());   
           co_return make_unexpected(MavlinkErrc::FailedWrite);
         }
-        m_msg_queue.pop();
       }
       auto result = co_await receive_message();
       result.map_error([](std::error_code e) {
@@ -368,14 +376,15 @@ public:
                                                     0,
                                                     0);
       spdlog::info("Sending guided");
-      m_msg_queue.emplace(msg);
-      timer.expires_after(60ms);
-      co_await timer.async_wait(use_nothrow_awaitable);
+      auto [error] = co_await m_ap_requests.async_send(asio::error_code{}, msg, use_nothrow_awaitable);
+      // m_msg_queue.emplace(msg);
+      // timer.expires_after(60ms);
+      // co_await timer.async_wait(use_nothrow_awaitable);
       // auto [error, written] = co_await send_message(msg);
-      // if (error) {
-      //   spdlog::error("Could not send set and arm GUIDED mode, asio error: {}", error.message());
-      //   co_return make_unexpected(MavlinkErrc::FailedWrite);
-      // }
+      if (error) {
+        spdlog::error("Could not send set and arm GUIDED mode, asio error: {}", error.message());
+        // co_return make_unexpected(MavlinkErrc::FailedWrite);
+      }
     }
   }
   auto set_target_velocity(std::span<float, 3> velxyz)
@@ -403,16 +412,17 @@ public:
       INVALID,
       INVALID,
       INVALID);
-    m_msg_queue.emplace(msg);
-    asio::steady_timer timer(co_await asio::this_coro::executor);
-    timer.expires_after(60ms);
-    co_await timer.async_wait(use_nothrow_awaitable);
+    auto [error] = co_await m_ap_requests.async_send(asio::error_code{}, msg, use_nothrow_awaitable);
+    // m_msg_queue.emplace(msg);
+    // asio::steady_timer timer(co_await asio::this_coro::executor);
+    // timer.expires_after(60ms);
+    // co_await timer.async_wait(use_nothrow_awaitable);
     // auto [error, written] = co_await send_message(msg);
-    // if (error) {
-    //   spdlog::error("Could not send set_target, asio error: {}\n",
-    //                 error.message());
-    //   co_return make_unexpected(MavlinkErrc::FailedWrite);
-    // }
+    if (error) {
+      spdlog::error("Could not send set_target, asio error: {}\n",
+                    error.message());
+      // co_return make_unexpected(MavlinkErrc::FailedWrite);
+    }
   }
   auto set_target_position_local(std::span<float, 3> xyz)
     -> asio::awaitable<void>
@@ -439,17 +449,18 @@ public:
       INVALID,
       INVALID,
       INVALID);
-    m_msg_queue.emplace(msg);
-    asio::steady_timer timer(co_await asio::this_coro::executor);
-    timer.expires_after(60ms);
-    co_await timer.async_wait(use_nothrow_awaitable);
+    auto [error] = co_await m_ap_requests.async_send(asio::error_code{}, msg, use_nothrow_awaitable);
+    // m_msg_queue.emplace(msg);
+    // asio::steady_timer timer(co_await asio::this_coro::executor);
+    // timer.expires_after(60ms);
+    // co_await timer.async_wait(use_nothrow_awaitable);
     // auto [error, written] = co_await send_message(msg);
     // // TODO: add cancellation and time out here
-    // if (error) {
-    //   spdlog::error("Could not send set_target, asio error: {}",
-    //                 error.message());
-    //   co_return make_unexpected(MavlinkErrc::FailedWrite);
-    // }
+    if (error) {
+      spdlog::error("Could not send set_target, asio error: {}",
+                    error.message());
+      // co_return make_unexpected(MavlinkErrc::FailedWrite);
+    }
   }
   auto set_target_attitude(std::span<float, 4> rotation_quaternion,
                            float yaw_rate,
@@ -472,16 +483,17 @@ public:
                                               yaw_rate,
                                               thrust,
                                               unused_thrust_body_field);
-    m_msg_queue.emplace(msg);
-    asio::steady_timer timer(co_await asio::this_coro::executor);
-    timer.expires_after(60ms);
-    co_await timer.async_wait(use_nothrow_awaitable);
+    auto [error] = co_await m_ap_requests.async_send(asio::error_code{}, msg, use_nothrow_awaitable);
+    // m_msg_queue.emplace(msg);
+    // asio::steady_timer timer(co_await asio::this_coro::executor);
+    // timer.expires_after(60ms);
+    // co_await timer.async_wait(use_nothrow_awaitable);
     // auto [error, written] = co_await send_message(msg);
-    // if (error) {
-    //   spdlog::error("Could not send set_attitude, asio error: {}\n",
-    //                 error.message());
-    //   co_return make_unexpected(MavlinkErrc::FailedWrite);
-    // }
+    if (error) {
+      spdlog::error("Could not send set_attitude, asio error: {}\n",
+                    error.message());
+      // co_return make_unexpected(MavlinkErrc::FailedWrite);
+    }
   }
   auto set_obstacle_distance(std::span<uint16_t, 72> distances,
                              float increment,
@@ -503,16 +515,17 @@ public:
                                             increment,
                                             offset,
                                             MAV_FRAME_BODY_FRD);
-    m_msg_queue.emplace(msg);
-    asio::steady_timer timer(co_await asio::this_coro::executor);
-    timer.expires_after(60ms);
-    co_await timer.async_wait(use_nothrow_awaitable);
+    auto [error] = co_await m_ap_requests.async_send(asio::error_code{}, msg, use_nothrow_awaitable);
+    // m_msg_queue.emplace(msg);
+    // asio::steady_timer timer(co_await asio::this_coro::executor);
+    // timer.expires_after(60ms);
+    // co_await timer.async_wait(use_nothrow_awaitable);
     // auto [error, written] = co_await send_message(msg);
-    // if (error) {
-    //   spdlog::error("Could not send obstacle_distance, asio error: {}\n",
-    //                error.message());
-    //   co_return make_unexpected(MavlinkErrc::FailedWrite);
-    // }
+    if (error) {
+      spdlog::error("Could not send obstacle_distance, asio error: {}\n",
+                   error.message());
+      // co_return make_unexpected(MavlinkErrc::FailedWrite);
+    }
   }
   auto heartbeat() -> mavlink_message_t
   {
