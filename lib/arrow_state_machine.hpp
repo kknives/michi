@@ -8,29 +8,7 @@
 #include "classification_model.hpp"
 #include "mobilenet_arrow.hpp"
 
-const static double EARTH_RADIUS_KM = 6372.8;
-struct Position {
-  double deg_lat, deg_lon;
-  inline double to_radian(double angle) {
-    return M_PI * angle / 180.0;
-  }
-  // From https://rosettacode.org/wiki/Haversine_formula#C++
-  double haversine_distance_metres(const Position& p2) {
-  	double latRad1 = to_radian(deg_lat);
-  	double latRad2 = to_radian(p2.deg_lat);
-  	double lonRad1 = to_radian(deg_lon);
-  	double lonRad2 = to_radian(p2.deg_lon);
-
-  	double diffLa = latRad2 - latRad1;
-  	double doffLo = lonRad2 - lonRad1;
-
-  	double computation = asin(sqrt(sin(diffLa / 2) * sin(diffLa / 2) + cos(latRad1) * cos(latRad2) * sin(doffLo / 2) * sin(doffLo / 2)));
-  	return 2 * EARTH_RADIUS_KM * computation * 1000;
-  }
-  bool operator==(const Position& other) {
-    return std::abs(haversine_distance_metres(other)) < 30;
-  }
-};
+using LatLonDeg = Eigen::Vector2f;
 using Eigen::Vector3f;
 struct Objective {
   enum class Type {
