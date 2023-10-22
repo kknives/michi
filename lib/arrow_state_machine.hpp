@@ -94,8 +94,11 @@ class ArrowStateMachine {
   float m_current_heading;
 
   ImpureInterface::InputState m_state;
-  void set_outputs(ImpureInterface& i, int delay_sec = 0) {
-    i.output = {.delay_sec = delay_sec, .target_xyz_pos_local = Vector3f(0,0,0), .yaw = m_target_heading};
+  void set_outputs(ImpureInterface& i, float yaw = 0, int delay_sec = 0) {
+    i.output = {.delay_sec = delay_sec, .target_xyz_pos_local = Vector3f(0,0,0), .yaw = yaw};
+    if (m_current_obj) {
+      i.output.target_xyz_pos_local = m_objectives[*m_current_obj].location;
+    }
   }
   void update_state(const ImpureInterface::InputState& i) {
     m_current_pos = Vector3f(i.xyz[0], i.xyz[1], i.xyz[2]);
@@ -122,7 +125,7 @@ class ArrowStateMachine {
     std::array<float, 4> bb = get_bounding_box(m_detector);
     if (auto dist = get_depth_lock(depth_image, bb); dist.has_value()) {
       // Set target location to this distance
-      m_objectives.back().location = m_current_position + Vector3f(*dist, 0.0f, 0.0f);
+      m_objectives.back().location = m_current_pos + Vector3f(*dist, 0.0f, 0.0f);
       // Set yaw target
     } else {
       // Forget you saw anything
@@ -137,14 +140,16 @@ class ArrowStateMachine {
       // if objective reached, then set new target heading
       if (m_current_dist_to_obj < 2) {
         if (m_objectives[*m_current_obj].type == Objective::Type::CONE) return true;
-        m_target_heading = m_objectives[*m_current_obj].target_heading;
+        float heading_target = m_objectives[*m_current_obj].target_heading;
         m_current_obj.reset();
-        set_outputs(i, 10);
+        set_outputs(i, heading_target, 10);
         return false;
       }
+      return false;
+    } else {
+      seek(rgb_image, depth_image);
+      set_outputs(i);
+      return false;
     }
-    seek(rgb_image, depth_image);
-    set_outputs(i);
-    return false;
   }
 };
