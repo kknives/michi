@@ -176,7 +176,7 @@ auto get_depth_lock(rs2::frame& depth_frame, std::span<float, 4> rect_vertices) 
 auto mission(auto& mi, std::shared_ptr<RealsenseDevice> rs_dev) -> asio::awaitable<void> {
   auto this_exec = co_await asio::this_coro::executor;
 
-  auto classifier = ClassificationModel(MobilenetArrowClassifier(args.get("--model")));
+  auto classifier = ClassificationModel(MobilenetArrowClassifier::make_waseem2_model(args.get("model_path")));
   bool done = false;
   co_await mi->set_guided_mode_armed();
   asio::steady_timer timer(this_exec);
@@ -194,7 +194,7 @@ auto mission(auto& mi, std::shared_ptr<RealsenseDevice> rs_dev) -> asio::awaitab
       cv::Mat image(cv::Size(640, 480), CV_8UC3, const_cast<void*>(rgb_frame.get_data()), cv::Mat::AUTO_STEP);
       auto object_found = classify(classifier, image, args.get<float>("-t"));
 
-      if (object_found) {
+      if (object_found != ClassificationModel::Detection::NONE) {
         spdlog::critical("Detected arrow, type {:d}", object_found);
         current_target = Target{.type=Target::Type::ARROW_SIGHTED};
         // Arrow found
@@ -247,7 +247,7 @@ auto mission(auto& mi, std::shared_ptr<RealsenseDevice> rs_dev) -> asio::awaitab
       cv::Mat image(cv::Size(640, 480), CV_8UC3, const_cast<void*>(rgb_frame.get_data()));
       auto object_found = classify(classifier, image, args.get<float>("-t"));
       // Arrows found
-      if (object_found) {
+      if (object_found != ClassificationModel::Detection::NONE) {
         spdlog::critical("Detected arrow, type {:d}", object_found);
         std::array<float, 4> crop_rectangle = get_bounding_box(classifier);
         auto lock_distance = get_depth_lock(depth_frame, crop_rectangle);
@@ -303,8 +303,15 @@ auto mission(auto& mi, std::shared_ptr<RealsenseDevice> rs_dev) -> asio::awaitab
 }
 
 int main(int argc, char* argv[]) {
+  args.add_argument("model_path").help("Path to arrow classification model (eg. w_model2.onnx)");
   args.add_argument("ardupilot").help("Serial port (eg. /dev/ttyUSB0) connected to Pixhawk's TELEMETRY2");
-  args.add_argument("-m", "--model").default_value(std::string("lib/saved_model_checkpoint4.onnx")).help("model to use for arrow classification");
+  args.add_argument("-m", "--model").default_value(std::string("waseem2")).action([](const std::string& value) {
+    static const std::vector<std::string> choices = { "waseem2", "mohnish4"};
+    if (std::find(choices.begin(), choices.end(), value) != choices.end()) {
+      return value;
+    }
+    return std::string{ "waseem2" };
+  }).help("model to use for arrow classification: waseem2 or mohnish4");
   args.add_argument("--no-avoid").default_value(false).implicit_value(true).help("Disable obstacle avoidance behaviour");
   args.add_argument("-t", "--threshold").default_value(0.3f).help("Threshold for arrow detections (confidence > threshold => arrow detected)");
 
