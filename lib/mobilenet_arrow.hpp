@@ -74,7 +74,10 @@ public:
   static MobilenetArrowClassifier make_mohnish4_model(const std::string& s) {
     return MobilenetArrowClassifier(s, MOHNISH4_CLASSMAP);
   }
-  friend ClassificationModel::Detection model_classify(MobilenetArrowClassifier& mac, cv::Mat& image, float threshold=0.6f)
+  friend ClassificationModel::Detection model_classify(
+    MobilenetArrowClassifier& mac,
+    cv::Mat& image,
+    float threshold = 0.6f)
   {
     mac.m_outputs.reset();
     // Image preprocessing
