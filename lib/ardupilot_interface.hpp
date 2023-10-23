@@ -428,6 +428,36 @@ public:
       // co_return make_unexpected(MavlinkErrc::FailedWrite);
     }
   }
+  auto set_target_yaw(float yaw) -> asio::awaitable<void> {
+    mavlink_message_t msg;
+    mavlink_msg_set_position_target_local_ned_pack_chan(
+      m_system_id,
+      m_my_id,
+      m_channel,
+      &msg,
+      get_uptime(),
+      m_system_id,
+      m_component_id,
+      MAV_FRAME_BODY_OFFSET_NED,
+      USE_YAW,
+      INVALID,
+      INVALID,
+      INVALID,
+      INVALID,
+      INVALID,
+      INVALID,
+      INVALID,
+      INVALID,
+      INVALID,
+      yaw,
+      INVALID);
+    auto [error] = co_await m_ap_requests.async_send(asio::error_code{}, msg, use_nothrow_awaitable);
+    if (error) {
+      spdlog::error("Could not send set_target, asio error: {}",
+                    error.message());
+      // co_return make_unexpected(MavlinkErrc::FailedWrite);
+    }
+  }
   auto set_target_position_local(std::span<float, 3> xyz)
     -> asio::awaitable<void>
   {
