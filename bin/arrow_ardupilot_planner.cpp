@@ -144,23 +144,6 @@ auto locate_obstacles(rs2::points& points, auto& mi, std::span<float, 2> fov) ->
   //   co_await timer.async_wait(use_nothrow_awaitable);
   // }
 }
-auto get_depth_lock(rs2::frame& depth_frame, std::span<float, 4> rect_vertices) -> std::optional<float> {
-  cv::Point2f top_left(rect_vertices[0]*640, rect_vertices[1]*480), bottom_right(rect_vertices[2]*640, rect_vertices[3]*480);
-  cv::Mat depth_frame_mat(cv::Size(640, 480), CV_8UC1, const_cast<void*>(depth_frame.get_data()), cv::Mat::AUTO_STEP);
-  auto cropped = depth_frame_mat(cv::Rect(top_left, bottom_right));
-
-  int valid_depths = 0;
-  using tPixel = cv::Point_<uint8_t>;
-  valid_depths = cv::countNonZero(cropped);
-  std::optional<float> distance;
-  if (valid_depths >= (0.5*cropped.total())) {
-    std::cout << cv::sum(cropped) << '\n';
-    int depth_sum = cv::sum(cropped)[0];
-    // Lock available
-    distance.emplace(depth_sum/valid_depths);
-  }
-  return distance;
-}
 
 auto
 mission2(auto& mi,
