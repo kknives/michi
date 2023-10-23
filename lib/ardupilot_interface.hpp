@@ -226,9 +226,10 @@ public:
           co_return make_unexpected(MavlinkErrc::FailedWrite);
         }
       }
-      if (not m_ap_requests.ready()) {
+      auto result = co_await (m_ap_requests.async_receive(use_nothrow_awaitable) || receive_message());
+      if (std::holds_alternative<std::tuple<asio::error_code, mavlink_message_t>>(result)) {
         mavlink_message_t this_msg;
-        tie(error, this_msg) = co_await m_ap_requests.async_receive(use_nothrow_awaitable);
+        tie(error, this_msg) = std::get<std::tuple<asio::error_code, mavlink_message_t>>(result);
         if (error) {
           spdlog::trace("Couldn't send msg, id: {}, asio error: {}", static_cast<unsigned int>(this_msg.msgid), error.message());   
           co_return make_unexpected(MavlinkErrc::FailedWrite);
@@ -238,10 +239,11 @@ public:
           spdlog::trace("Couldn't send msg, id: {}, asio error: {}", static_cast<unsigned int>(this_msg.msgid), error.message());   
           co_return make_unexpected(MavlinkErrc::FailedWrite);
         }
-      }
-      auto error = co_await receive_message();
-      if (error) {
-        spdlog::error("Couldn't receive_message: {}: {}", error.category().name(), error.message());
+      } else if (std::holds_alternative<std::error_code>(result)) {
+      auto error = std::get<std::error_code>(result);
+       if (error) {
+          spdlog::error("Couldn't receive_message: {}: {}", error.category().name(), error.message());
+        }
       }
       timer.expires_after(80ms);
       co_await timer.async_wait(use_nothrow_awaitable);
