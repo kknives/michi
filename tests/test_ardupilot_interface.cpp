@@ -21,7 +21,7 @@ TEST(ArdupilotInterfaceTest, HeartBeats) {
       FAIL() << "receive_message_loop coroutine faced error: " << e.category().name() << ": " << e.message() << "\n";
     });
   });
-  asio::co_spawn(io_ctx, mi.set_guided_mode_armed(), [](std::exception_ptr p) {
+  asio::co_spawn(io_ctx, mi.set_guided_mode(), [](std::exception_ptr p) {
     if (p) {
       try { std::rethrow_exception(p); }
       catch(const std::exception& e) {
@@ -29,5 +29,5 @@ TEST(ArdupilotInterfaceTest, HeartBeats) {
       }
     }
   });
-  io_ctx.run_for(5s);
+  io_ctx.run();
 }
