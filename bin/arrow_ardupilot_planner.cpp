@@ -7,6 +7,7 @@
 #include "realsense_generator.hpp"
 #include "classification_model.hpp"
 #include "mobilenet_arrow.hpp"
+#include "arrow_state_machine.hpp"
 #include <asio/detached.hpp>
 #include <asio/this_coro.hpp>
 #include <spdlog/spdlog.h>
@@ -34,20 +35,6 @@ const char* banner = R"Banner(
  >=>      >=>   >=>     >=>      >=>   >=>    >=>         >=>  >=>   >=>   >=>  >=>  >=>  >=> >>         >=>
 >=>        >=> >==>    >=>        >=> >==>    >=>        >==>   >==>>>==> >==>  >=> >==>  >=>  >====>   >==>
 )Banner";
-
-// TODO: Add hash function/PoSet relation
-struct Target {
-  enum class Type {
-    ARROW_LOCKED,
-    CONE_LOCKED,
-    ARROW_SIGHTED,
-    CONE_SIGHTED,
-    HEADING,
-  };
-  Type type;
-  std::optional<std::array<float, 3>> location;
-  std::optional<float> heading;
-};
 
 using fmt::print;
 using tPclPtr = pcl::PointCloud<pcl::PointXYZ>::Ptr;
@@ -110,7 +97,7 @@ tPclPtr points_to_pcl(const rs2::points& points)
     return cloud;
 }
 
-auto locate_obstacles(std::shared_ptr<RealsenseDevice> rs_dev, auto& mi, std::span<float, 2> fov) -> asio::awaitable<void> {
+auto locate_obstacles(rs2::points& points, auto& mi, std::span<float, 2> fov) -> asio::awaitable<void> {
   spdlog::debug("Inside locate_obstacles");
   asio::steady_timer timer(co_await asio::this_coro::executor);
   
@@ -122,8 +109,7 @@ auto locate_obstacles(std::shared_ptr<RealsenseDevice> rs_dev, auto& mi, std::sp
   pcl::ExtractIndices<pcl::PointXYZ> extract;
   pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
   pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
-  for (;;) {
-    auto points = co_await rs_dev->async_get_points();
+  // for (;;) {
     spdlog::debug("Got points");
     auto pcl_points = points_to_pcl(points);
     pass_filter.setInputCloud(pcl_points);
@@ -151,9 +137,9 @@ auto locate_obstacles(std::shared_ptr<RealsenseDevice> rs_dev, auto& mi, std::sp
 
     co_await mi->set_obstacle_distance(
       std::span(distances), 88.0f / 72.0f, 17.5f, 300.0f, 15.0f);
-    timer.expires_after(1s);
-    co_await timer.async_wait(use_nothrow_awaitable);
-  }
+  //   timer.expires_after(1s);
+  //   co_await timer.async_wait(use_nothrow_awaitable);
+  // }
 }
 auto get_depth_lock(rs2::frame& depth_frame, std::span<float, 4> rect_vertices) -> std::optional<float> {
   cv::Point2f top_left(rect_vertices[0]*640, rect_vertices[1]*480), bottom_right(rect_vertices[2]*640, rect_vertices[3]*480);
