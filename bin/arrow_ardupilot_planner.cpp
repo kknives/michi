@@ -1,6 +1,7 @@
 #include <argparse/argparse.hpp>
 
 #include "ardupilot_interface.hpp"
+#include <cstdint>
 #include <opencv4/opencv2/opencv.hpp>
 #include "common.hpp"
 #include "opencv2/core.hpp"
@@ -72,7 +73,9 @@ calculate_obstacle_distances(tPclPtr pc,
     pcl::PointWithRange ray;
     int idx = i * (88.0f / 72.0f);
     rg_img.get1dPointAverage(idx, 1, 1, 58, 58, ray);
-    distances[i - 1] = uint16_t(ray.range);
+    if (std::isinf(ray.range)) distances[i-1] = UINT16_MAX;
+    else distances[i - 1] = uint16_t(ray.range*100);
+    distances[i - 1] = distances[i - 1] ? distances[i - 1] : UINT16_MAX;
   }
 }
 
