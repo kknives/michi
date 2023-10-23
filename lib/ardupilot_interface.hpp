@@ -139,6 +139,14 @@ class MavlinkInterface
     m_ap_state.m_rpy = {att.roll, att.pitch, att.yaw};
     m_ap_state.m_rpy_vel = {att.rollspeed, att.pitchspeed, att.yawspeed};
   }
+  auto show_statustext(const mavlink_message_t* msg) -> void {
+    mavlink_statustext_t stxt;
+    mavlink_msg_statustext_decode(msg, &stxt);
+    if (stxt.severity < MAV_SEVERITY_NOTICE) {
+      spdlog::warn("AP Status: {}", stxt.text);
+    } else
+      spdlog::info("AP Status: {}", stxt.text);
+  }
   auto handle_message(const mavlink_message_t* msg)
   {
     // spdlog::info("Got message with ID {}, system {}", msg->msgid,
@@ -146,6 +154,9 @@ class MavlinkInterface
     if (msg->sysid != 1)
       return; // Only handling messages from autopilot
     switch (msg->msgid) {
+      case MAVLINK_MSG_ID_STATUSTEXT:
+        show_statustext(msg);
+        break;
       case MAVLINK_MSG_ID_HEARTBEAT:
         spdlog::trace("Got heartbeat");
         break;
@@ -361,7 +372,32 @@ public:
   auto global_linear_velocity() -> std::span<float, 3> const {
     return std::span(m_ap_state.m_global_vel);
   }
-  auto set_guided_mode_armed() -> asio::awaitable<void> {
+  auto set_armed(int disarm = 0) -> asio::awaitable<void> {
+    mavlink_message_t msg;
+    const uint16_t mav_cmd_component_arm_disarm = 400;
+    auto len = mavlink_msg_command_long_pack_chan(m_system_id,
+                                                  m_my_id,
+                                                  m_channel,
+                                                  &msg,
+                                                  m_system_id,
+                                                  m_component_id,
+                                                  mav_cmd_component_arm_disarm,
+                                                  0,
+                                                  (disarm) ? 0 : 1,
+                                                  0,
+                                                  0,
+                                                  0,
+                                                  0,
+                                                  0,
+                                                  0);
+    spdlog::info("Sending ARM");
+    auto [error] = co_await m_ap_requests.async_send(asio::error_code{}, msg, use_nothrow_awaitable);
+    if (error) {
+      spdlog::error("Could not send ARM, asio error: {}", error.message());
+      // co_return make_unexpected(MavlinkErrc::FailedWrite);
+    }
+  }
+  auto set_guided_mode() -> asio::awaitable<void> {
     mavlink_message_t msg;
     const uint16_t mav_cmd_do_set_mode = 176;
     asio::steady_timer timer(co_await asio::this_coro::executor);
@@ -388,7 +424,7 @@ public:
       // co_await timer.async_wait(use_nothrow_awaitable);
       // auto [error, written] = co_await send_message(msg);
       if (error) {
-        spdlog::error("Could not send set and arm GUIDED mode, asio error: {}", error.message());
+        spdlog::error("Could not send set GUIDED mode, asio error: {}", error.message());
         // co_return make_unexpected(MavlinkErrc::FailedWrite);
       }
     }
