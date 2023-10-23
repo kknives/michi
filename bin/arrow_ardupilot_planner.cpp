@@ -159,132 +159,56 @@ auto get_depth_lock(rs2::frame& depth_frame, std::span<float, 4> rect_vertices) 
   return distance;
 }
 
-auto mission(auto& mi, std::shared_ptr<RealsenseDevice> rs_dev) -> asio::awaitable<void> {
+auto
+mission2(auto& mi,
+         std::shared_ptr<RealsenseDevice> rs_dev,
+         std::span<float, 2> fov) -> asio::awaitable<void>
+{
   auto this_exec = co_await asio::this_coro::executor;
 
-  auto classifier = ClassificationModel(MobilenetArrowClassifier::make_waseem2_model(args.get("model_path")));
-  bool done = false;
+  ClassificationModel classifier =
+    (args.get("--model") == "mohnish4")
+      ? (ClassificationModel(MobilenetArrowClassifier::make_mohnish4_model(
+          args.get("model_path"))))
+      : ClassificationModel(
+          MobilenetArrowClassifier::make_waseem2_model(args.get("model_path")));
   co_await mi->set_guided_mode_armed();
   asio::steady_timer timer(this_exec);
-  Target current_target{.type=Target::Type::HEADING, .heading=0.0f};
-  std::set<Target> visited_targets;
 
-  spdlog::info("Starting mission loop");
-  // Mission Loop
-  for (;;) {
-    if (current_target.type == Target::Type::HEADING) {
-      // Get the current frame and process it for potential targets
-      auto rgb_frame = co_await rs_dev->async_get_rgb_frame();
-      auto depth_frame = co_await rs_dev->async_get_depth_frame();
-      // If there's a segfault, this maybe to blame, removing const from const void*
-      cv::Mat image(cv::Size(640, 480), CV_8UC3, const_cast<void*>(rgb_frame.get_data()), cv::Mat::AUTO_STEP);
-      auto object_found = classify(classifier, image, args.get<float>("-t"));
+  ArrowStateMachine sm(classifier, 0.6f);
+  spdlog::info("Starting mission2");
+  while (true) {
+    auto rgb_frame = co_await rs_dev->async_get_rgb_frame();
+    auto depth_frame = co_await rs_dev->async_get_depth_frame();
+    cv::Mat image(cv::Size(640, 480), CV_8UC3, const_cast<void*>(rgb_frame.get_data()));
+    // cv::imwrite("/tmp/im"+std::to_string(i)+".jpg", depth_frame_mat);
+    auto points = co_await rs_dev->async_get_points();
 
-      if (object_found != ClassificationModel::Detection::NONE) {
-        spdlog::critical("Detected arrow, type {:d}", object_found);
-        current_target = Target{.type=Target::Type::ARROW_SIGHTED};
-        // Arrow found
-        std::array<float, 4> crop_rectangle = get_bounding_box(classifier);
+    co_await locate_obstacles(points, mi, fov);
 
-        auto lock_distance = get_depth_lock(depth_frame, crop_rectangle);
-        if (lock_distance) {
-          spdlog::critical("Obtained lock, distance {:f}", *lock_distance);
-          // Set AP Target with distance
-          current_target.type = Target::Type::ARROW_LOCKED;
-
-          std::array<float, 3> forward_right_down{*lock_distance, 0.0f, 0.0f};
-          std::array<float, 3> ref_arrow;
-          auto current_position = mi->local_position();
-          std::transform(begin(forward_right_down),
-                         end(forward_right_down),
-                         begin(current_position),
-                         begin(ref_arrow),
-                         std::plus<float>());
-          current_target.location.emplace(ref_arrow);
-
-          co_await mi->set_target_position_local(std::span(forward_right_down));
-          continue;
-        }
-        
-        std::array<float, 3> vel_forward_right_down{};
-        co_await mi->set_target_velocity(std::span(vel_forward_right_down));
-        continue;
-      }
-
-      // If a target is found, check for duplicates against visited_targets
-      // make a new target, if unique
-      // If depth can lock it, set a target on it with AP
-      // Otherwise, reduce velocity and change heading to match target
-
-      // If no target is found, maintain heading and loop
-      std::array<float, 3> vel_forward_right_down{};
-      co_await mi->set_target_velocity(std::span(vel_forward_right_down));
-      continue;
-    }
-
-    // There's already a target, check target
-    if (current_target.type == Target::Type::ARROW_SIGHTED or current_target.type == Target::Type::CONE_SIGHTED) {
-      // Check if realsense depth can give a lock on the location
-      // Lock the target by setting a target on AP
-      // If not, set the velocity low, match heading and carefully approach target
-
-      auto rgb_frame = co_await rs_dev->async_get_rgb_frame();
-      auto depth_frame = co_await rs_dev->async_get_depth_frame();
-      cv::Mat image(cv::Size(640, 480), CV_8UC3, const_cast<void*>(rgb_frame.get_data()));
-      auto object_found = classify(classifier, image, args.get<float>("-t"));
-      // Arrows found
-      if (object_found != ClassificationModel::Detection::NONE) {
-        spdlog::critical("Detected arrow, type {:d}", object_found);
-        std::array<float, 4> crop_rectangle = get_bounding_box(classifier);
-        auto lock_distance = get_depth_lock(depth_frame, crop_rectangle);
-        if (lock_distance) {
-          spdlog::critical("Obtained lock, distance {:f}", *lock_distance);
-          current_target.type = Target::Type::ARROW_LOCKED;
-          std::array<float, 3> forward_right_down{*lock_distance, 0.0f, 0.0f};
-          std::array<float, 3> ref_arrow;
-          auto current_position = mi->local_position();
-          std::transform(begin(forward_right_down),
-                         end(forward_right_down),
-                         begin(current_position),
-                         begin(ref_arrow), std::plus<float>());
-          current_target.location.emplace(ref_arrow);
-
-          co_await mi->set_target_position_local(std::span(forward_right_down));
-          continue;
-        }
-      }
-      std::array<float, 3> vel_forward_right_down{};
-      co_await mi->set_target_velocity(std::span(vel_forward_right_down));
-      continue;
-    }
-    if (current_target.type == Target::Type::ARROW_LOCKED or current_target.type == Target::Type::CONE_LOCKED) {
-      // Check if the target approach, reduce velocity if needed,
-      // Get the distance to target, cutoff appraoch and wait if needed
-      // Don't continue, await the wait timer instead
-      // Turn and set heading, clear current_target, push it to visited_targets
-      auto current_position = mi->local_position();
-      float approach_distance = std::inner_product(
-        begin(current_position),
-        end(current_position),
-        begin(*current_target.location),
-        0.0f,
-        std::plus<>{},
-        [](const float& a, const float& b) { return (a - b) * (a - b); });
-      timer.expires_after(30ms);
+    // Initialize the monadic interface for the SM
+    ImpureInterface sm_monad(mi->local_position());
+    if (sm.next(sm_monad, image, depth_frame)) co_return; // Maybe disarm too
+    if (sm_monad.output.delay_sec) {
+      timer.expires_after(std::chrono::seconds(sm_monad.output.delay_sec));
       co_await timer.async_wait(use_nothrow_awaitable);
-      // std::cout << "AD:" << approach_distance <<'\n';
-      if (approach_distance < 10) {
-        spdlog::critical("Target approach complete (distance {:f}), stopping", approach_distance);
-        std::array<float, 3> stop_vel {0.0f, 0.0f, 0.0f};
-        co_await mi->set_target_velocity(std::span(stop_vel));
-        timer.expires_after(10s);
-        co_await timer.async_wait(use_nothrow_awaitable);
-        // TODO: Change heading
-        // visited_targets.emplace(current_target);
-        current_target = Target{.type=Target::Type::HEADING};
-        continue;
-      }
     }
+    spdlog::debug("Monad O/P target: {}", sm_monad.output.target_xyz_pos_local);
+    if (sm_monad.output.target_xyz_pos_local != Vector3f(0.0f, 0.0f, 0.0f)) {
+      spdlog::critical("Changing targets, new: {}", sm_monad.output.target_xyz_pos_local);
+      std::array<float, 3> target_xyz{
+        sm_monad.output.target_xyz_pos_local[0],
+        sm_monad.output.target_xyz_pos_local[1],
+        sm_monad.output.target_xyz_pos_local[2]
+      };
+      co_await mi->set_target_position_local(target_xyz);
+    }
+    if (sm_monad.output.yaw != 0.0f) {
+      // set target yaw here
+      co_await mi->set_target_yaw(sm_monad.output.yaw);
+    }
+    timer.expires_after(800ms);
+    co_await timer.async_wait(use_nothrow_awaitable);
   }
 }
 
@@ -335,21 +259,9 @@ int main(int argc, char* argv[]) {
   std::array<float, 2> fov = {fovh, fovv};
   auto rs_dev = std::make_shared<RealsenseDevice>(rs_pipe, io_ctx);
 
-  if (not args.get<bool>("--no-avoid"))
-    asio::co_spawn(io_ctx, locate_obstacles(rs_dev, mi, std::span(fov)), 
-    [](std::exception_ptr p) {
-      if (p) {
-        try {
-          std::rethrow_exception(p);
-        } catch (const std::exception& e) {
-          spdlog::error("locate_obstacles coroutine threw exception: {}",
-                        e.what());
-        }
-      }
-    });
   asio::co_spawn(
     io_ctx,
-    mission(mi, rs_dev),
+    mission2(mi, rs_dev, std::span(fov)),
     [](std::exception_ptr p) {
       if (p) {
         try {
