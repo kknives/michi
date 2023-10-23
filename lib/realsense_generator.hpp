@@ -65,10 +65,11 @@ auto setup_device() noexcept -> tResult<std::tuple<rs2::pipeline, float, float>>
 
     auto devices = ctx.query_devices();
     if (devices.size() == 0) return make_unexpected(DeviceErrc::NoDeviceConnected);
+    stream_config.enable_stream(rs2_stream::RS2_STREAM_COLOR, 0, 640, 480, rs2_format::RS2_FORMAT_BGR8, 30); // Choose resolution here
     stream_config.enable_stream(rs2_stream::RS2_STREAM_DEPTH, 0, 640, 480, rs2_format::RS2_FORMAT_Z16, 30);
-    stream_config.enable_stream(rs2_stream::RS2_STREAM_COLOR); // Choose resolution here
     rs2::pipeline_profile selection = pipe.start(stream_config);
     auto depth_stream = selection.get_stream(RS2_STREAM_DEPTH).as<rs2::video_stream_profile>();
+    spdlog::info("Depth stream {}x{}", depth_stream.width(), depth_stream.height());
     auto i = depth_stream.get_intrinsics();
     rs2_fov(&i, fov);
     fov[0] = (fov[0] * M_PI)/180.0f;
@@ -103,11 +104,11 @@ class RealsenseDevice {
     spdlog::debug("rgb_frame size {}", rgb_frame.get_data_size());
     co_return rgb_frame;
   }
-  auto async_get_depth_frame() -> asio::awaitable<rs2::frame> {
-    rs2::frame depth = frames.first_or_default(RS2_STREAM_DEPTH);
+  auto async_get_depth_frame() -> asio::awaitable<rs2::depth_frame> {
+    rs2::depth_frame depth = frames.get_depth_frame();
     do {
       co_await async_update();
-      depth = frames.first_or_default(RS2_STREAM_DEPTH);
+      depth = frames.get_depth_frame();
     } while (not depth);
     // Decimation > Spatial > Temporal > Threshold
     depth = dec_filter.process(depth);

@@ -4,6 +4,7 @@
 #include <opencv4/opencv2/opencv.hpp>
 #include <opencv4/opencv2/core.hpp>
 #include <Eigen/Dense>
+#include <spdlog/spdlog.h>
 
 #include "classification_model.hpp"
 #include "mobilenet_arrow.hpp"
@@ -30,33 +31,16 @@ struct Objective {
     return diff.norm();
   }
 };
-auto get_depth_lock(cv::Mat& depth_frame_mat, std::span<float, 4> rect_vertices) -> std::optional<float> {
-  cv::Point2f top_left(rect_vertices[0]*640, rect_vertices[1]*480), bottom_right(rect_vertices[2]*640, rect_vertices[3]*480);
-  auto cropped = depth_frame_mat(cv::Rect(top_left, bottom_right));
-
-  int valid_depths = 0;
-  using tPixel = cv::Point_<uint8_t>;
-  valid_depths = cv::countNonZero(cropped);
-  std::optional<float> distance;
-  if (valid_depths >= (0.5*cropped.total())) {
-    std::cout << cv::sum(cropped) << '\n';
-    int depth_sum = cv::sum(cropped)[0];
-    // Lock available
-    distance.emplace(depth_sum/valid_depths);
-  }
-  return distance;
-}
-
 struct ImpureInterface{
   struct InputState {
-    uint16_t dist_to_target;
-    std::array<float, 3> xyz;
+    std::span<float, 3> xyz;
   } input;
   struct Outputs {
     int delay_sec;
     Vector3f target_xyz_pos_local;
     float yaw;
   } output;
+  ImpureInterface(std::span<float, 3> input_xyz) : input{.xyz = input_xyz} {}
 };
 class ArrowStateMachine {
   std::vector<Objective> m_objectives;
@@ -71,10 +55,28 @@ class ArrowStateMachine {
   Vector3f m_current_pos;
   float m_current_heading;
 
-  ImpureInterface::InputState m_state;
-  void set_outputs(ImpureInterface& i, float yaw = 0, int delay_sec = 0) {
-    i.output = {.delay_sec = delay_sec, .target_xyz_pos_local = Vector3f(0,0,0), .yaw = yaw};
-    if (m_current_obj) {
+  auto get_depth_lock(rs2::depth_frame& depth_frame, std::span<float, 4> rect_vertices) -> std::optional<float> {
+    std::optional<float> distance;
+    int count = 0, valid = 0;
+    float dist_sum = 0.0f;
+    spdlog::warn("Rectangle: {} {}, {} {}, out of {}", rect_vertices[0]*320, rect_vertices[1]*240, rect_vertices[2]*640, rect_vertices[3]*480, depth_frame.get_data_size());
+    for (int i = rect_vertices[0]*320; i <= rect_vertices[2]*320; i++) {
+      for (int j = rect_vertices[1]*240; j <= rect_vertices[3]*240; j++) {
+        float dist = depth_frame.get_distance(i, j);
+        if (int(dist*1000) != 0) valid++;
+        count++;
+        dist_sum += dist;
+      }
+    }
+    if (count*0.5 < valid) distance.emplace(dist_sum/count);
+    return distance;
+  }
+
+  void set_outputs(ImpureInterface& i, float yaw = 0, int delay_sec = 0, bool send_obj = false) {
+    i.output = { .delay_sec = delay_sec,
+                 .target_xyz_pos_local = Vector3f(0, 0, 0),
+                 .yaw = yaw };
+    if (send_obj and m_current_obj) {
       i.output.target_xyz_pos_local = m_objectives[*m_current_obj].location;
     }
   }
@@ -82,7 +84,7 @@ class ArrowStateMachine {
     m_current_pos = Vector3f(i.xyz[0], i.xyz[1], i.xyz[2]);
     m_current_dist_to_obj.emplace(i.dist_to_target);
   }
-  void seek(cv::Mat& rgb_image, cv::Mat& depth_image) {
+  bool seek(cv::Mat& rgb_image, rs2::depth_frame& depth_image) {
     // What happens when an objective is detected
     switch (classify(m_detector, rgb_image, m_detector_threshold)) {
       case ClassificationModel::Detection::CONE:
@@ -96,7 +98,7 @@ class ArrowStateMachine {
       break;
 
       case ClassificationModel::Detection::NONE:
-      return;
+      return false;
     }
     m_current_obj.emplace(m_objectives.size() - 1);
     // Try to estimate position
@@ -104,15 +106,19 @@ class ArrowStateMachine {
     if (auto dist = get_depth_lock(depth_image, bb); dist.has_value()) {
       // Set target location to this distance
       m_objectives.back().location = m_current_pos + Vector3f(*dist, 0.0f, 0.0f);
+      spdlog::critical("Target at {}m away", *dist);
       // Set yaw target
+      return true;
     } else {
       // Forget you saw anything
+      spdlog::warn("Could not get depth lock, forgetting");
       m_objectives.pop_back();
       m_current_obj.reset();
+      return false;
     }
   }
   public:
-  bool next(ImpureInterface& i, cv::Mat& rgb_image, cv::Mat& depth_image) {
+  bool next(ImpureInterface& i, cv::Mat& rgb_image, rs2::depth_frame& depth_image) {
     update_state(i.input);
     if (m_current_obj) {
       // if objective reached, then set new target heading
@@ -130,4 +136,5 @@ class ArrowStateMachine {
       return false;
     }
   }
+  ArrowStateMachine(ClassificationModel& m, float detection_threshold=0.6f) : m_detector(std::move(m)), m_detector_threshold(detection_threshold) {}
 };
