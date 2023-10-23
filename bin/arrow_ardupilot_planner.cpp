@@ -158,7 +158,8 @@ mission2(auto& mi,
           args.get("model_path"))))
       : ClassificationModel(
           MobilenetArrowClassifier::make_waseem2_model(args.get("model_path")));
-  co_await mi->set_guided_mode_armed();
+  co_await mi->set_guided_mode();
+  co_await mi->set_armed();
   asio::steady_timer timer(this_exec);
 
   ArrowStateMachine sm(classifier, 0.6f);
@@ -174,7 +175,10 @@ mission2(auto& mi,
 
     // Initialize the monadic interface for the SM
     ImpureInterface sm_monad(mi->local_position());
-    if (sm.next(sm_monad, image, depth_frame)) co_return; // Maybe disarm too
+    if (sm.next(sm_monad, image, depth_frame)) {
+      co_await mi->set_armed(1); // disarm
+      co_return;
+    }
     if (sm_monad.output.delay_sec) {
       timer.expires_after(std::chrono::seconds(sm_monad.output.delay_sec));
       co_await timer.async_wait(use_nothrow_awaitable);
