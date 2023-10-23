@@ -51,7 +51,7 @@ class ArrowStateMachine {
   float m_detector_threshold;
 
   std::optional<tObjectiveId> m_current_obj;
-  std::optional<uint16_t> m_current_dist_to_obj;
+  std::optional<float> m_current_dist_to_obj;
   Vector3f m_current_pos;
   float m_current_heading;
 
@@ -82,7 +82,9 @@ class ArrowStateMachine {
   }
   void update_state(const ImpureInterface::InputState& i) {
     m_current_pos = Vector3f(i.xyz[0], i.xyz[1], i.xyz[2]);
-    m_current_dist_to_obj.emplace(i.dist_to_target);
+    if (m_current_obj) {
+      m_current_dist_to_obj.emplace(m_objectives[*m_current_obj].distance_to(m_current_pos));
+    }
   }
   bool seek(cv::Mat& rgb_image, rs2::depth_frame& depth_image) {
     // What happens when an objective is detected
@@ -131,8 +133,8 @@ class ArrowStateMachine {
       }
       return false;
     } else {
-      seek(rgb_image, depth_image);
-      set_outputs(i);
+      set_outputs(i,
+      seek(rgb_image, depth_image));
       return false;
     }
   }
