@@ -59,7 +59,7 @@ class ArrowStateMachine {
     std::optional<float> distance;
     int count = 0, valid = 0;
     float dist_sum = 0.0f;
-    spdlog::warn("Rectangle: {} {}, {} {}, out of {}", rect_vertices[0]*320, rect_vertices[1]*240, rect_vertices[2]*640, rect_vertices[3]*480, depth_frame.get_data_size());
+    spdlog::debug("Rectangle: {} {}, {} {}, out of {}", rect_vertices[0]*320, rect_vertices[1]*240, rect_vertices[2]*320, rect_vertices[3]*240, depth_frame.get_data_size());
     for (int i = rect_vertices[0]*320; i <= rect_vertices[2]*320; i++) {
       for (int j = rect_vertices[1]*240; j <= rect_vertices[3]*240; j++) {
         float dist = depth_frame.get_distance(i, j);
@@ -125,6 +125,7 @@ class ArrowStateMachine {
     if (m_current_obj) {
       // if objective reached, then set new target heading
       if (m_current_dist_to_obj < 2) {
+        spdlog::critical("Current target reached");
         if (m_objectives[*m_current_obj].type == Objective::Type::CONE) return true;
         float heading_target = m_objectives[*m_current_obj].target_heading;
         m_current_obj.reset();
@@ -133,7 +134,7 @@ class ArrowStateMachine {
       }
       return false;
     } else {
-      set_outputs(i,
+      set_outputs(i, 0, 0,
       seek(rgb_image, depth_image));
       return false;
     }
