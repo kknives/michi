@@ -397,6 +397,38 @@ public:
       // co_return make_unexpected(MavlinkErrc::FailedWrite);
     }
   }
+  auto set_hold_mode() -> asio::awaitable<void> {
+    mavlink_message_t msg;
+    const uint16_t mav_cmd_do_set_mode = 176;
+    asio::steady_timer timer(co_await asio::this_coro::executor);
+    for (int i = 0; i < 1; i++) {
+      auto len = mavlink_msg_command_long_pack_chan(m_system_id,
+                                                    m_my_id,
+                                                    m_channel,
+                                                    &msg,
+                                                    m_system_id,
+                                                    m_component_id,
+                                                    mav_cmd_do_set_mode,
+                                                    i,
+                                                    1,
+                                                    4,
+                                                    0,
+                                                    0,
+                                                    0,
+                                                    0,
+                                                    0);
+      spdlog::info("Sending hold");
+      auto [error] = co_await m_ap_requests.async_send(asio::error_code{}, msg, use_nothrow_awaitable);
+      // m_msg_queue.emplace(msg);
+      // timer.expires_after(60ms);
+      // co_await timer.async_wait(use_nothrow_awaitable);
+      // auto [error, written] = co_await send_message(msg);
+      if (error) {
+        spdlog::error("Could not send set HOLD mode, asio error: {}", error.message());
+        // co_return make_unexpected(MavlinkErrc::FailedWrite);
+      }
+    }
+  } 
   auto set_guided_mode() -> asio::awaitable<void> {
     mavlink_message_t msg;
     const uint16_t mav_cmd_do_set_mode = 176;
