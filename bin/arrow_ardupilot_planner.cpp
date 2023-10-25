@@ -162,7 +162,7 @@ mission2(auto& mi,
   co_await mi->set_armed();
   asio::steady_timer timer(this_exec);
 
-  ArrowStateMachine sm(classifier, 0.6f);
+  ArrowStateMachine sm(classifier, args.get<float>("-t"));
   spdlog::info("Starting mission2");
   while (true) {
     auto rgb_frame = co_await rs_dev->async_get_rgb_frame();
@@ -213,7 +213,7 @@ int main(int argc, char* argv[]) {
     return std::string{ "waseem2" };
   }).help("model to use for arrow classification: waseem2 or mohnish4");
   args.add_argument("--no-avoid").default_value(false).implicit_value(true).help("Disable obstacle avoidance behaviour");
-  args.add_argument("-t", "--threshold").default_value(0.3f).help("Threshold for arrow detections (confidence > threshold => arrow detected)");
+  args.add_argument("-t", "--threshold").default_value(0.6f).help("Threshold for arrow detections (confidence > threshold => arrow detected)");
 
   int log_verbosity = 0;
   args.add_argument("-V", "--verbose")
