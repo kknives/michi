@@ -235,7 +235,7 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  spdlog::set_level(spdlog::level::debug);
+  spdlog::set_level(spdlog::level::info);
   print("{}\n",banner);
   spdlog::info("Starting ArrowArdupilotPlanner version {}", "version_string");
 
