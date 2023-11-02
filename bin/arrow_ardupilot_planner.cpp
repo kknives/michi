@@ -180,6 +180,9 @@ mission2(auto& mi,
       co_return;
     }
     if (sm_monad.output.delay_sec) {
+      spdlog::critical("Arrived at target, HOLD for {} seconds",
+                       sm_monad.output.delay_sec);
+      co_await mi->set_hold_mode();
       timer.expires_after(std::chrono::seconds(sm_monad.output.delay_sec));
       co_await timer.async_wait(use_nothrow_awaitable);
     }
