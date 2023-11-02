@@ -55,12 +55,29 @@ class ArrowStateMachine {
   Vector3f m_current_pos;
   float m_current_heading;
 
-  auto get_depth_lock(rs2::depth_frame& depth_frame, std::span<float, 4> rect_vertices) -> std::optional<float> {
+  auto get_pose_lock(cv::Mat& rgb_image,
+                     std::span<float, 4> rect_vertices,
+                     const cv::Mat& camera_matrix,
+                     std::span<float, 4> distance_coeff)
+    -> std::optional<double>
+  {
+    // bool res = cv::solvePnP(rgb_image, )
+    // TODO: complete this
+    return std::optional<double>();
+  }
+  auto get_depth_lock(rs2::depth_frame& depth_frame,
+                      std::span<float, 4> rect_vertices) -> std::optional<float>
+  {
     std::optional<float> distance;
     int count = 0, valid = 0;
     float dist_sum = 0.0f;
-    spdlog::debug("Rectangle: {} {}, {} {}, out of {}", rect_vertices[0]*320, rect_vertices[1]*240, rect_vertices[2]*320, rect_vertices[3]*240, depth_frame.get_data_size());
-    for (int i = rect_vertices[0]*320; i <= rect_vertices[2]*320; i++) {
+    spdlog::debug("Rectangle: {} {}, {} {}, out of {}",
+                  rect_vertices[0] * 320,
+                  rect_vertices[1] * 240,
+                  rect_vertices[2] * 320,
+                  rect_vertices[3] * 240,
+                  depth_frame.get_data_size());
+    for (int i = rect_vertices[0] * 320; i <= rect_vertices[2] * 320; i++) {
       for (int j = rect_vertices[1]*240; j <= rect_vertices[3]*240; j++) {
         float dist = depth_frame.get_distance(i, j);
         if (int(dist*1000) != 0) valid++;
@@ -139,5 +156,9 @@ class ArrowStateMachine {
       return false;
     }
   }
-  ArrowStateMachine(ClassificationModel& m, float detection_threshold=0.6f) : m_detector(std::move(m)), m_detector_threshold(detection_threshold) {}
+  ArrowStateMachine(ClassificationModel& m, float detection_threshold = 0.6f)
+    : m_detector(std::move(m))
+    , m_detector_threshold(detection_threshold)
+  {
+  }
 };
