@@ -397,6 +397,9 @@ public:
       // co_return make_unexpected(MavlinkErrc::FailedWrite);
     }
   }
+  auto set_disarmed() {
+    return set_armed(1);
+  }
   auto set_hold_mode() -> asio::awaitable<void> {
     mavlink_message_t msg;
     const uint16_t mav_cmd_do_set_mode = 176;

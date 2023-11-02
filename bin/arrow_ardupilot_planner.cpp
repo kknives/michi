@@ -176,7 +176,7 @@ mission2(auto& mi,
     // Initialize the monadic interface for the SM
     ImpureInterface sm_monad(mi->local_position());
     if (sm.next(sm_monad, image, depth_frame)) {
-      co_await mi->set_armed(1); // disarm
+      co_await mi->set_disarmed(); // disarm
       co_return;
     }
     if (sm_monad.output.delay_sec) {
