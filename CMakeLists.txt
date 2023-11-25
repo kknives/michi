@@ -69,6 +69,12 @@ if (BUILD_MOBILENET_SCRIPT)
     target_link_libraries(run_mobilenet_arrow PRIVATE Michi ${GTEST_LDFLAGS} -fsanitize=address)
 endif()
 
+option(BUILD_ANNOTATE_ARROW_SCRIPT "Build annotate_arrow.cpp for annotating arrow detection" ON)
+if (BUILD_ANNOTATE_ARROW_SCRIPT)
+    add_executable(annotate_arrow bin/annotate_arrow.cpp)
+    add_dependencies(annotate_arrow Michi)
+    target_link_libraries(annotate_arrow PRIVATE Michi ${GTEST_LDFLAGS} -fsanitize=address)
+endif()
 install(
     TARGETS
     RUNTIME DESTINATION

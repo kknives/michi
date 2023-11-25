@@ -4,6 +4,7 @@ result
 .direnv
 compile_commands.json
 *.pcapng
+*.avi
 *.log
 
 *.tflite
