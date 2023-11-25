@@ -108,6 +108,7 @@ class ArrowStateMachine {
     switch (classify(m_detector, rgb_image, m_detector_threshold)) {
       case ClassificationModel::Detection::CONE:
       m_objectives.emplace_back(Objective::Type::CONE, m_current_heading, 0.0f);
+      spdlog::critical("Sighted CONE");
       break;
       case ClassificationModel::Detection::ARROW_LEFT:
       m_objectives.emplace_back(Objective::Type::ARROW_LEFT, m_current_heading, 90.0f);
