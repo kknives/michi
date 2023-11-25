@@ -185,6 +185,7 @@ mission2(auto& mi,
       co_await mi->set_hold_mode();
       timer.expires_after(std::chrono::seconds(sm_monad.output.delay_sec));
       co_await timer.async_wait(use_nothrow_awaitable);
+      co_await mi->set_guided_mode();
     }
     spdlog::debug("Monad O/P target: {}", sm_monad.output.target_xyz_pos_local);
     if (sm_monad.output.target_xyz_pos_local != Vector3f(0.0f, 0.0f, 0.0f)) {
