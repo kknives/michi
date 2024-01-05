@@ -236,9 +236,20 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  spdlog::set_level(spdlog::level::info);
   print("{}\n",banner);
   spdlog::info("Starting ArrowArdupilotPlanner version {}", "version_string");
+  switch (log_verbosity) {
+    case 0:
+    spdlog::set_level(spdlog::level::info);
+    break;
+    case 1:
+    spdlog::info("Verbosity 1: Logging debug messages");
+    spdlog::set_level(spdlog::level::debug);
+    break;
+    default:
+    spdlog::info("Verbosity 2: Logging trace messages");
+    spdlog::set_level(spdlog::level::trace);
+  }
 
   asio::io_context io_ctx;
   spdlog::trace("asio io_context setup");
