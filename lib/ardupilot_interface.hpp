@@ -150,8 +150,8 @@ class MavlinkInterface
   }
   auto handle_message(const mavlink_message_t* msg)
   {
-    // spdlog::info("Got message with ID {}, system {}", msg->msgid,
-    // msg->sysid);
+    spdlog::trace("Got message with ID {}, system {}", msg->msgid,
+    msg->sysid);
     if (msg->sysid != 1)
       return; // Only handling messages from autopilot
     switch (msg->msgid) {
