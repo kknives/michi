@@ -71,14 +71,14 @@ class ArrowStateMachine {
     std::optional<float> distance;
     int count = 0, valid = 0;
     float dist_sum = 0.0f;
-    spdlog::debug("Rectangle: {} {}, {} {}, out of {}",
+    spdlog::debug("Rectangle: {} {}, {} {}, size: {}×{}",
                   rect_vertices[0] * 320,
                   rect_vertices[1] * 240,
                   rect_vertices[2] * 320,
                   rect_vertices[3] * 240,
-                  depth_frame.get_data_size());
-    for (int i = rect_vertices[0] * 320; i <= rect_vertices[2] * 320; i++) {
-      for (int j = rect_vertices[1]*240; j <= rect_vertices[3]*240; j++) {
+                  depth_frame.get_height(), depth_frame.get_width());
+    for (int i = rect_vertices[0] * 320; i < rect_vertices[2] * 320; i++) {
+      for (int j = rect_vertices[1]*240; j < rect_vertices[3]*240; j++) {
         float dist = depth_frame.get_distance(i, j);
         if (int(dist*1000) != 0) valid++;
         count++;
@@ -86,6 +86,7 @@ class ArrowStateMachine {
       }
     }
     if (count*0.5 < valid) distance.emplace(dist_sum/count);
+    spdlog::debug("Depth lock done");
     return distance;
   }
 
