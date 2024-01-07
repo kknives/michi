@@ -75,6 +75,12 @@ if (BUILD_ANNOTATE_ARROW_SCRIPT)
     add_dependencies(annotate_arrow Michi)
     target_link_libraries(annotate_arrow PRIVATE Michi ${GTEST_LDFLAGS} -fsanitize=address)
 endif()
+option(BUILD_YOLO_SCRIPT "Build run_yolo.cpp for running YOLO ONNX models" ON)
+if (BUILD_YOLO_SCRIPT )
+    add_executable(run_yolo bin/run_yolo.cpp)
+    add_dependencies(run_yolo Michi)
+    target_link_libraries(run_yolo PRIVATE Michi ${GTEST_LDFLAGS} -fsanitize=address)
+endif()
 install(
     TARGETS
     RUNTIME DESTINATION
