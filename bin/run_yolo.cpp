@@ -232,8 +232,8 @@ int main(int argc, ORTCHAR_T* argv[]) {
       if (it[4] < conf_threshold) continue;
       int centerX = int(it[0]);
       int centerY = int(it[1]);
-      int height = int(it[2]);
-      int width = int(it[3]);
+      int width = int(it[2]);
+      int height = int(it[3]);
 
       int left = centerX - width/2;
       int top = centerY - height/2;
@@ -266,8 +266,10 @@ int main(int argc, ORTCHAR_T* argv[]) {
                 << boxes[i].x << ", " << boxes[i].y << " by " << boxes[i].height
                 << " × " << boxes[i].width << '\n';
       std::cout << '\n';
+      cv::rectangle(image, boxes[i], cv::Scalar(0, 255, 0), 2);
+      cv::imwrite("detection.jpg", image);
     }
-    
+
   } catch (const Ort::Exception& exception) {
       std::cout << "ERROR running model inference: " << exception.what() << std::endl;
     exit(-1);
