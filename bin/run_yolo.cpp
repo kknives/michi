@@ -210,10 +210,10 @@ int main(int argc, ORTCHAR_T* argv[]) {
     // NOTE: the number of output tensors is equal to the number of output nodes specifed in the Run() call
     assert(output_tensors.size() == output_names.size() && output_tensors[0].IsTensor());
 
-    auto* raw_outputs = output_tensors[0].GetTensorData<float>();
+    float* raw_outputs = output_tensors[0].GetTensorMutableData<float>();
     const std::vector<int64_t> output_shape = output_tensors[0].GetTensorTypeAndShapeInfo().GetShape();
     const size_t output_count = output_tensors[0].GetTensorTypeAndShapeInfo().GetElementCount();
-    std::vector<float> output(raw_outputs, raw_outputs+output_count);
+    cv::Mat output0 = cv::Mat(cv::Size((int) output_shape[2], (int) output_shape[1]), CV_32F, raw_outputs).t();
 
     int elem_in_batch = int(output_shape[1]*output_shape[2]);
 
@@ -227,33 +227,32 @@ int main(int argc, ORTCHAR_T* argv[]) {
     std::vector<int> class_ids;
     std::vector<float> confs;
     std::vector<cv::Rect> boxes;
-    for (auto it = output.begin(); it != output.begin() + elem_in_batch;
-         it += output_shape[2]) {
-      if (it[4] < conf_threshold) continue;
+    const int class_names_num = 3;
+    float* it = reinterpret_cast<float*>(output0.data);
+
+    for (int r = 0; r < output0.rows; r++) {
+      // float sc1 = it[0], sc2 = it[1], sc3 = it[2];
+      cv::Mat scores(1, class_names_num, CV_32FC1, it + 4);
+      cv::Point class_id;
+      double max_conf;
+      cv::minMaxLoc(scores, nullptr, &max_conf, nullptr, &class_id);
+
+      if (max_conf < conf_threshold) {
+        it += output_shape[1];
+      }
       int centerX = int(it[0]);
       int centerY = int(it[1]);
       int width = int(it[2]);
       int height = int(it[3]);
 
-      int left = centerX - width/2;
-      int top = centerY - height/2;
-
-      int class_id;
-      float obj_conf;
-      if (it[5] > left_threshold) {
-        class_id = 1;
-        obj_conf = it[5];
-      } else if (it[6] > right_threshold) {
-        class_id = 2;
-        obj_conf = it[6];
-      } else {
-        obj_conf = fmax(it[5], it[6]);
-        class_id = 1 + (obj_conf == it[6]);
-      }
+      int left = std::max(centerX - width/2, 0);
+      int top = std::max(centerY - height/2, 0);
 
       boxes.emplace_back(left, top, width, height);
-      class_ids.emplace_back(class_id);
-      confs.emplace_back(obj_conf * it[4]);
+      class_ids.emplace_back(class_id.x);
+      confs.emplace_back(max_conf);
+
+      it += output_shape[1];
     }
 
     std::vector<int> nms_indices;
