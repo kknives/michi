@@ -9,6 +9,7 @@
 #include "classification_model.hpp"
 #include "mobilenet_arrow.hpp"
 #include "arrow_state_machine.hpp"
+#include "yolov8_arrow.hpp"
 #include <asio/detached.hpp>
 #include <asio/this_coro.hpp>
 #include <spdlog/spdlog.h>
@@ -152,12 +153,15 @@ mission2(auto& mi,
 {
   auto this_exec = co_await asio::this_coro::executor;
 
-  ClassificationModel classifier =
-    (args.get("--model") == "mohnish4")
-      ? (ClassificationModel(MobilenetArrowClassifier::make_mohnish4_model(
-          args.get("model_path"))))
-      : ClassificationModel(
-          MobilenetArrowClassifier::make_waseem2_model(args.get("model_path")));
+  std::optional<ClassificationModel> uninit_classifier;
+  if (args.get("--model") == "mohnish4") {
+    uninit_classifier.emplace(ClassificationModel(MobilenetArrowClassifier::make_mohnish4_model(args.get("model_path"))));
+  } else if (args.get("--model") == "waseem2") {
+    uninit_classifier.emplace(ClassificationModel(MobilenetArrowClassifier::make_waseem2_model(args.get("model_path"))));
+  } else {
+    uninit_classifier.emplace(ClassificationModel(Yolov8ArrowClassifier::make_mohnish7_model(args.get("model_path"))));
+  }
+  ClassificationModel classifier(std::move(uninit_classifier.value()));
   co_await mi->set_guided_mode();
   co_await mi->set_armed();
   asio::steady_timer timer(this_exec);
@@ -209,15 +213,15 @@ mission2(auto& mi,
 int main(int argc, char* argv[]) {
   args.add_argument("model_path").help("Path to arrow classification model (eg. w_model2.onnx)");
   args.add_argument("ardupilot").help("Serial port (eg. /dev/ttyUSB0) connected to Pixhawk's TELEMETRY2");
-  args.add_argument("-m", "--model").default_value(std::string("waseem2")).action([](const std::string& value) {
-    static const std::vector<std::string> choices = { "waseem2", "mohnish4"};
+  args.add_argument("-m", "--model").default_value(std::string("yolov8")).action([](const std::string& value) {
+    static const std::vector<std::string> choices = { "waseem2", "mohnish4", "yolov8"};
     if (std::find(choices.begin(), choices.end(), value) != choices.end()) {
       return value;
     }
-    return std::string{ "waseem2" };
-  }).help("model to use for arrow classification: waseem2 or mohnish4");
+    return std::string{ "yolov8" };
+  }).help("model to use for arrow classification");
   args.add_argument("--no-avoid").default_value(false).implicit_value(true).help("Disable obstacle avoidance behaviour");
-  args.add_argument("-t", "--threshold").default_value(0.6f).help("Threshold for arrow detections (confidence > threshold => arrow detected)");
+  args.add_argument("-t", "--threshold").default_value(0.7f).help("Threshold for arrow detections (confidence > threshold => arrow detected)").scan<'g', float>();
 
   int log_verbosity = 0;
   args.add_argument("-V", "--verbose")
