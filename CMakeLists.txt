@@ -19,7 +19,7 @@ find_package(spdlog REQUIRED)
 pkg_check_modules(MAVLink mavlink_c)
 pkg_check_modules(Asio asio)
 
-add_library(Michi lib/realsense_generator.cpp lib/mobilenet_arrow.cpp lib/ardupilot_interface.cpp)
+add_library(Michi lib/realsense_generator.cpp lib/mobilenet_arrow.cpp lib/ardupilot_interface.cpp lib/yolov8_arrow.cpp)
 target_compile_options(Michi PUBLIC -fcoroutines)
 target_include_directories(Michi PUBLIC lib ${Asio_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS} ${realsense_INCLUDE_DIR}
     ${PCL_INCLUDE_DIRS} PRIVATE ${MAVLink_INCLUDE_DIRS})
@@ -52,6 +52,9 @@ target_link_libraries(test_realsense_generator PRIVATE Michi ${GTEST_LDFLAGS} -f
 add_executable(test_mobilenet_arrow tests/test_mobilenet_arrow.cpp)
 add_dependencies(test_mobilenet_arrow Michi)
 target_link_libraries(test_mobilenet_arrow PRIVATE Michi ${GTEST_LDFLAGS} -fsanitize=address)
+add_executable(test_yolov8_arrow tests/test_yolov8_arrow.cpp)
+add_dependencies(test_yolov8_arrow Michi)
+target_link_libraries(test_yolov8_arrow PRIVATE Michi ${GTEST_LDFLAGS} -fsanitize=address)
 add_executable(test_ardupilot_interface tests/test_ardupilot_interface.cpp)
 add_dependencies(test_ardupilot_interface Michi)
 target_link_libraries(test_ardupilot_interface PRIVATE Michi ${GTEST_LDFLAGS} -fsanitize=address)
