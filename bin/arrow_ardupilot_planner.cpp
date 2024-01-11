@@ -210,7 +210,21 @@ mission2(auto& mi,
     }
     if (sm_monad.output.yaw != 0.0f) {
       // set target yaw here
-      co_await mi->set_target_yaw(sm_monad.output.yaw);
+      float yaw_radian = ((sm_monad.output.yaw + last_yaw)* M_PI)/180.0f;
+      Eigen::Quaternionf rot(Eigen::AngleAxis<float>(yaw_radian, Eigen::Vector3f::UnitZ()));
+      std::array<float, 4> quaternion_parameters { rot.w(), rot.x(), rot.y(), rot.z() };
+      spdlog::critical("Turning by {}° to {}°: {}",
+                       sm_monad.output.yaw,
+                       last_yaw + sm_monad.output.yaw,
+                       quaternion_parameters);
+      co_await mi->set_target_attitude(quaternion_parameters, 0.1f);
+      last_yaw += sm_monad.output.yaw;
+    }
+    if (targets == 0) {
+      // Move the rover forward initially
+      const float initial_forward_vel_x = 0.5f;
+      std::array<float, 3> target_vel_xyz{ initial_forward_vel_x, 0.0f, 0.0f };
+      co_await mi->set_target_velocity(target_vel_xyz);
     }
     timer.expires_after(800ms);
     co_await timer.async_wait(use_nothrow_awaitable);
