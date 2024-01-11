@@ -51,7 +51,7 @@ class MobilenetArrowClassifier
 
   Ort::AllocatorWithDefaultOptions m_allocator;
   std::array<Ort::Value, 1> m_input_tensor;
-  std::optional<std::tuple<size_t, std::vector<Ort::Value>>> m_outputs;
+  std::optional<cv::Rect> m_bounding_box;
   std::array<ClassificationModel::Detection, 4>& m_result_map;
 
 public:
@@ -79,7 +79,8 @@ public:
     cv::Mat& image,
     float threshold = 0.6f)
   {
-    mac.m_outputs.reset();
+    mac.m_bounding_box.reset();
+    cv::Size original_image_size = image.size();
     // Image preprocessing
     cv::cvtColor(image, image, cv::COLOR_BGR2RGB);
 
@@ -111,18 +112,17 @@ public:
                  scores[best_detection]);
     if (scores[best_detection] < threshold) return ClassificationModel::Detection::NONE;
 
-    mac.m_outputs.emplace(std::make_pair(
-      best_detection, std::move(output_tensors)));
+    const float* boxes = output_tensors[1].GetTensorData<float>();
+    std::array<float, 4> bb_tl_br{*(boxes+4*best_detection), *(boxes+4*best_detection + 1), *(boxes+4*best_detection + 2), *(boxes+4*best_detection + 3)};
+    spdlog::info("Bounding box {},{},{},{}", bb_tl_br[0],bb_tl_br[1],bb_tl_br[2],bb_tl_br[3]);
+    cv::Rect bounding_box(original_image_size.width*bb_tl_br[1], original_image_size.height*bb_tl_br[0], (bb_tl_br[3]-bb_tl_br[1])*original_image_size.width, (bb_tl_br[2] - bb_tl_br[0])*original_image_size.height); // Example bounding box (x, y, width, height)
+    mac.m_bounding_box.emplace(bounding_box);
+
     return mac.m_result_map[classes[best_detection]];
   }
-  friend std::array<float, 4> model_get_bounding_box(const MobilenetArrowClassifier& mac)
+  friend cv::Rect model_get_bounding_box(const MobilenetArrowClassifier& mac)
   {
-    assert(mac.m_outputs.has_value());
-    auto& [detection, output_tensor] = *mac.m_outputs;
-    const float* boxes = output_tensor[1].GetTensorData<float>();
-    // top, left, bottom, right
-    std::array<float, 4> m{*(boxes+4*detection), *(boxes+4*detection + 1), *(boxes+4*detection + 2), *(boxes+4*detection + 3)};
-    spdlog::info("Bounding box {},{},{},{}", m[0],m[1],m[2],m[3]);
-    return m;
+    assert(mac.m_bounding_box.has_value());
+    return mac.m_bounding_box.value();
   }
 };

@@ -17,9 +17,8 @@ TEST(test_mobilenet_arrow, ReturnsBoundingBox) {
   cv::Mat image = cv::imread("tests/sample_left_arrow.jpg");
   EXPECT_EQ(classify(mac, image, 0.3), ClassificationModel::Detection::ARROW_LEFT);
   auto bb = get_bounding_box(mac);
-  EXPECT_GT(bb.size(), 0);
-  EXPECT_LT(bb[0]*480, 480);
-  EXPECT_LT(bb[1]*640, 640);
-  EXPECT_LT(bb[2]*480, 480);
-  EXPECT_LT(bb[3]*640, 640);
+
+  EXPECT_GT(bb.area(), 0);
+  EXPECT_GT(bb.x, 0);
+  EXPECT_GT(bb.y, 0);
 }
