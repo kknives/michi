@@ -239,6 +239,7 @@ int main(int argc, ORTCHAR_T* argv[]) {
 
       if (max_conf < conf_threshold) {
         it += output_shape[1];
+        continue;
       }
       int centerX = int(it[0]);
       int centerY = int(it[1]);
@@ -261,7 +262,7 @@ int main(int argc, ORTCHAR_T* argv[]) {
     std::cout << "NMS indices count: " << nms_indices.size() << '\n';
     for (int i : nms_indices) {
       scaleCoords(cv::Size(640, 640), boxes[i], original_img_shape);
-      std::cout << "Detection confidence " << confs[i] << "\nBounding box "
+      std::cout << "Detection confidence " << confs[i] << " Class " << class_ids[i] << "\nBounding box "
                 << boxes[i].x << ", " << boxes[i].y << " by " << boxes[i].height
                 << " × " << boxes[i].width << '\n';
       std::cout << '\n';
