@@ -66,19 +66,19 @@ class ArrowStateMachine {
     return std::optional<double>();
   }
   auto get_depth_lock(rs2::depth_frame& depth_frame,
-                      std::span<float, 4> rect_vertices) -> std::optional<float>
+                      cv::Rect rect_vertices) -> std::optional<float>
   {
     std::optional<float> distance;
     int count = 0, valid = 0;
     float dist_sum = 0.0f;
     spdlog::debug("Rectangle: {} {}, {} {}, size: {}×{}",
-                  rect_vertices[0] * 320,
-                  rect_vertices[1] * 240,
-                  rect_vertices[2] * 320,
-                  rect_vertices[3] * 240,
-                  depth_frame.get_height(), depth_frame.get_width());
-    for (int i = rect_vertices[0] * 320; i < rect_vertices[2] * 320; i++) {
-      for (int j = rect_vertices[1]*240; j < rect_vertices[3]*240; j++) {
+                  rect_vertices.tl().x,
+                  rect_vertices.tl().y,
+                  rect_vertices.br().x,
+                  rect_vertices.br().y,
+                  rect_vertices.height, rect_vertices.width);
+    for (int i = rect_vertices.x; i < rect_vertices.x + rect_vertices.width; i++) {
+      for (int j = rect_vertices.y; j < rect_vertices.y + rect_vertices.height; j++) {
         float dist = depth_frame.get_distance(i, j);
         if (int(dist*1000) != 0) valid++;
         count++;
@@ -123,7 +123,7 @@ class ArrowStateMachine {
     }
     m_current_obj.emplace(m_objectives.size() - 1);
     // Try to estimate position
-    std::array<float, 4> bb = get_bounding_box(m_detector);
+    cv::Rect bb = get_bounding_box(m_detector);
     if (auto dist = get_depth_lock(depth_image, bb); dist.has_value()) {
       // Set target location to this distance
       m_objectives.back().location = m_current_pos + Vector3f(*dist, 0.0f, 0.0f);
