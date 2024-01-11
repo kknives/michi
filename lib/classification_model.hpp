@@ -16,7 +16,7 @@ class ClassificationModel {
   struct dClassification{
     virtual ~dClassification() {}
     virtual Detection classify(cv::Mat& image, float threshold) = 0;
-    virtual std::array<float, 4> get_bounding_box() = 0;
+    virtual cv::Rect get_bounding_box() = 0;
   };
 
   template <typename T>
@@ -25,7 +25,7 @@ class ClassificationModel {
     Detection classify(cv::Mat& image, float threshold) override {
       return model_classify(m_value, image, threshold);
     }
-    std::array<float, 4> get_bounding_box() override {
+    cv::Rect get_bounding_box() override {
       return model_get_bounding_box(m_value);
     }
 
@@ -35,7 +35,7 @@ class ClassificationModel {
   friend Detection classify(ClassificationModel& model, cv::Mat& image, float threshold=0.6f) {
     return model.m_value->classify(image, threshold);
   }
-  friend std::array<float, 4> get_bounding_box(const ClassificationModel& model) {
+  friend cv::Rect get_bounding_box(const ClassificationModel& model) {
     return model.m_value->get_bounding_box();
   }
   std::unique_ptr<dClassification> m_value;
