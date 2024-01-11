@@ -111,7 +111,6 @@ class RealsenseDevice {
       depth = frames.get_depth_frame();
     } while (not depth);
     // Decimation > Spatial > Temporal > Threshold
-    depth = dec_filter.process(depth);
     depth = temp_filter.process(depth);
     spdlog::debug("Depth Frame# {}", depth.get_frame_number());
     co_return depth;
@@ -125,7 +124,6 @@ class RealsenseDevice {
   asio::io_context& m_io_ctx;
   rs2::frameset frames;
 
-  rs2::decimation_filter dec_filter;
   rs2::temporal_filter temp_filter;
   rs2::pointcloud pc;
 };
