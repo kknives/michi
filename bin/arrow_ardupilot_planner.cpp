@@ -165,8 +165,11 @@ mission2(auto& mi,
   co_await mi->set_guided_mode();
   co_await mi->set_armed();
   asio::steady_timer timer(this_exec);
+  int targets = 0;
 
   ArrowStateMachine sm(classifier, args.get<float>("-t"));
+  Vector3f last_target(0.0f, 0.0f, 0.0f);
+  float last_yaw = 0.0f;
   spdlog::info("Starting mission2");
   while (true) {
     auto rgb_frame = co_await rs_dev->async_get_rgb_frame();
@@ -192,13 +195,17 @@ mission2(auto& mi,
       co_await mi->set_guided_mode();
     }
     spdlog::debug("Monad O/P target: {}", sm_monad.output.target_xyz_pos_local);
-    if (sm_monad.output.target_xyz_pos_local != Vector3f(0.0f, 0.0f, 0.0f)) {
-      spdlog::critical("Changing targets, new: {}", sm_monad.output.target_xyz_pos_local);
+    if (sm_monad.output.target_xyz_pos_local != Vector3f(0.0f, 0.0f, 0.0f) and
+        sm_monad.output.target_xyz_pos_local != last_target) {
+      spdlog::critical("Changing targets, new: {}",
+                       sm_monad.output.target_xyz_pos_local);
       std::array<float, 3> target_xyz{
         sm_monad.output.target_xyz_pos_local[0],
         sm_monad.output.target_xyz_pos_local[1],
         sm_monad.output.target_xyz_pos_local[2]
       };
+      last_target = sm_monad.output.target_xyz_pos_local;
+      targets++;
       co_await mi->set_target_position_local(target_xyz);
     }
     if (sm_monad.output.yaw != 0.0f) {
