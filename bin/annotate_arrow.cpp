@@ -48,8 +48,7 @@ int main(int argc, char** argv) {
         if (cv::Mat copy_frame = frame.clone(); classify(mac, copy_frame, 0.6) != ClassificationModel::Detection::NONE)
         {
           std::cout << "Rectangle" << '\n';
-          auto bb = get_bounding_box(mac);
-          cv::Rect bounding_box(640*bb[1], 480*bb[0], (bb[3]-bb[1])*640, (bb[2] - bb[0])*480); // Example bounding box (x, y, width, height)
+          auto bounding_box = get_bounding_box(mac);
           cv::rectangle(frame, bounding_box, cv::Scalar(0, 255, 0), 2);
           std::string text = "LEFT";
           int font = cv::FONT_HERSHEY_SIMPLEX;
