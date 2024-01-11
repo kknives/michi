@@ -44,9 +44,6 @@ const Yolov8Params MOHNISH7 {
     ClassificationModel::Detection::CONE,
   },
 };
-// const std::array<const char*, 1> YOLOV8_ARROW_INPUT_NAMES{ "image1" };
-// const std::array<int64_t, 4> YOLOV8_ARROW_INPUT_SHAPE{ 1, 3, 640, 640 };
-// const std::array<const char*, 1> YOLOV8_ARROW_OUTPUT_NAMES { "output0" };
 
 class Yolov8ArrowClassifier {
   Ort::Env m_env;
@@ -54,7 +51,7 @@ class Yolov8ArrowClassifier {
   Ort::Session m_session;
 
   Ort::AllocatorWithDefaultOptions m_allocator;
-  std::vector<Ort::Value> m_input_tensor;
+  std::array<Ort::Value, 1> m_input_tensor;
   std::optional<cv::Rect> m_output_bounding_box;
   const Yolov8Params& m_params;
 
@@ -137,7 +134,6 @@ void preprocessing(cv::Mat &image, float*& blob, std::vector<int64_t>& inputTens
     inputTensorShape[3] = resizedImage.cols;
 
     resizedImage.convertTo(floatImage, CV_32FC3, 1 / 255.0);
-    blob = new float[floatImage.cols * floatImage.rows * floatImage.channels()];
     cv::Size floatImageSize {floatImage.cols, floatImage.rows};
 
     // hwc -> chw
@@ -154,7 +150,10 @@ void preprocessing(cv::Mat &image, float*& blob, std::vector<int64_t>& inputTens
                           const Yolov8Params& params)
       : m_env(ORT_LOGGING_LEVEL_WARNING, "Yolov8ArrowClassifier")
       , m_session(m_env, model_path.c_str(), m_session_options)
-      , m_input_tensor{}
+      , m_input_tensor{ Ort::Value::CreateTensor<float>(
+          m_allocator,
+          params.input_shape.data(),
+          params.input_shape.size()) }
       , m_params(params)
     {
       spdlog::info("Initialized and loaded YOLOv8Arrow ONNX session");
@@ -168,25 +167,11 @@ void preprocessing(cv::Mat &image, float*& blob, std::vector<int64_t>& inputTens
       Yolov8ArrowClassifier & yac, cv::Mat & image, float threshold = 0.8f)
     {
       yac.m_output_bounding_box.reset();
-      yac.m_input_tensor.clear();
       cv::Size original_img_shape = image.size();
-      float* blob_ptr = nullptr;
-      std::vector<float> blob;
+      float* blob_ptr = yac.m_input_tensor[0].GetTensorMutableData<float>();
       std::vector<int64_t> preprocessed_input_shape{1,3,-1,-1};
       yac.preprocessing(image, blob_ptr, preprocessed_input_shape);
 
-      blob.assign(blob_ptr, blob_ptr+calculate_product(preprocessed_input_shape));
-      yac.m_input_tensor.emplace_back(vec_to_tensor<float>(blob, preprocessed_input_shape));
-
-      std::copy(preprocessed_input_shape.begin(), preprocessed_input_shape.end(), std::ostream_iterator<int>(std::cout, "×"));
-      std::cout << '\n';
-      // std::vector<float> blob(blob_ptr, blob_ptr+calculate_product(preprocessed_input_shape));
-
-      // std::cout << "Blob size: " << blob.size() << '\n';
-      // auto dest = yac.m_input_tensor[0].GetTensorMutableData<float>();
-      // std::copy(blob_ptr,
-      //           blob_ptr+calculate_product(preprocessed_input_shape),
-      //           dest);
       assert(yac.m_input_tensor[0].IsTensor() && yac.m_input_tensor[0].GetTensorTypeAndShapeInfo().GetShape() == preprocessed_input_shape);
       auto output_tensors = yac.m_session.Run(Ort::RunOptions{ nullptr },
                                         yac.m_params.input_names.data(),
@@ -197,7 +182,6 @@ void preprocessing(cv::Mat &image, float*& blob, std::vector<int64_t>& inputTens
 
     const std::vector<int64_t> output_shape = output_tensors[0].GetTensorTypeAndShapeInfo().GetShape();
 
-    std::copy(output_shape.begin(), output_shape.end(), std::ostream_iterator<int64_t>(std::cout, " "));
       float* raw_output = output_tensors[0].GetTensorMutableData<float>();
       cv::Mat output_mat = cv::Mat(cv::Size((int)yac.m_params.output_shape[2],
                                             (int)yac.m_params.output_shape[1]),
@@ -238,22 +222,10 @@ void preprocessing(cv::Mat &image, float*& blob, std::vector<int64_t>& inputTens
       cv::dnn::NMSBoxes(boxes, confs, threshold, 0.45f, nms_indices);
       if (nms_indices.size() == 0) return ClassificationModel::Detection::NONE;
 
-      std::cout << "NMS indices count: " << nms_indices.size() << '\n';
-      for (int i : nms_indices) {
-        yac.scaleCoords(cv::Size(640, 640), boxes[i], original_img_shape);
-        std::cout << "Detection confidence " << confs[i] << " Class " << class_ids[i] << "\nBounding box "
-                  << boxes[i].x << ", " << boxes[i].y << " by " << boxes[i].height
-                  << " × " << boxes[i].width << '\n';
-        std::cout << '\n';
-        cv::rectangle(image, boxes[i], cv::Scalar(0, 255, 0), 2);
-        cv::imwrite("detection.jpg", image);
-      }
-      // std::cout << nms_indices.size() << " indices found. Class: " << class_ids[nms_indices.front()] << '\n';
-      // yac.scaleCoords(cv::Size(640, 640), boxes[nms_indices.front()], original_img_shape);
-      // yac.scaleCoords(
-      //   cv::Size(preprocessed_input_shape[2], preprocessed_input_shape[3]),
-      //   boxes[nms_indices.front()],
-      //   original_img_shape);
+      yac.scaleCoords(
+        cv::Size(preprocessed_input_shape[2], preprocessed_input_shape[3]),
+        boxes[nms_indices.front()],
+        original_img_shape);
       yac.m_output_bounding_box.emplace(boxes[nms_indices.front()]);
       return yac.m_params.class_to_detection_map[class_ids[nms_indices.front()]];
     }
