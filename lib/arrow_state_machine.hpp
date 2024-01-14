@@ -77,8 +77,8 @@ class ArrowStateMachine {
                   rect_vertices.br().x,
                   rect_vertices.br().y,
                   rect_vertices.height, rect_vertices.width);
-    for (int i = rect_vertices.x; i < rect_vertices.x + rect_vertices.width; i++) {
-      for (int j = rect_vertices.y; j < rect_vertices.y + rect_vertices.height; j++) {
+    for (int i = std::max(rect_vertices.x, 0); i < std::min(rect_vertices.x + rect_vertices.width, depth_frame.get_width()); i++) {
+      for (int j = std::max(rect_vertices.y, 0); j < std::min(rect_vertices.y + rect_vertices.height, depth_frame.get_height()); j++) {
         float dist = depth_frame.get_distance(i, j);
         if (int(dist*1000) != 0) valid++;
         count++;
