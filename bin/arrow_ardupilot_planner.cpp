@@ -212,15 +212,17 @@ mission2(auto& mi,
       targets++;
       co_await mi->set_target_position_local(target_xyz);
     }
-    if (sm_monad.output.yaw != 0.0f) {
+    else{
       // set target yaw here
       float yaw_radian = ((sm_monad.output.yaw + last_yaw)* M_PI)/180.0f;
       Eigen::Quaternionf rot(Eigen::AngleAxis<float>(yaw_radian, Eigen::Vector3f::UnitZ()));
       std::array<float, 4> quaternion_parameters { rot.w(), rot.x(), rot.y(), rot.z() };
-      spdlog::critical("Turning by {}° to {}°: {}",
+      if (sm_monad.output.yaw != 0.0f) {
+             spdlog::critical("Turning by {}° to {}°: {}",
                        sm_monad.output.yaw,
                        last_yaw + sm_monad.output.yaw,
                        quaternion_parameters);
+        }
       co_await mi->set_target_attitude(quaternion_parameters, 0.1f);
       last_yaw += sm_monad.output.yaw;
     }
