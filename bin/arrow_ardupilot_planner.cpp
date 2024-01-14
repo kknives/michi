@@ -69,10 +69,12 @@ calculate_obstacle_distances(tPclPtr pc,
   std::cout << rg_img << "\n";
   std::cout << goods << "\n";
 
+  float hfov_deg = (fov[0] * 180.0f) / M_PI;
+  std::string store;
   int rays = distances.size();
   for (int i = 1; i <= rays; i++) {
     pcl::PointWithRange ray;
-    int idx = i * (88.0f / 72.0f);
+    int idx = i * (hfov_deg / 72.0f);
     rg_img.get1dPointAverage(idx, 1, 1, 58, 58, ray);
     if (std::isinf(ray.range)) distances[i-1] = UINT16_MAX;
     else distances[i - 1] = uint16_t(ray.range*100);
@@ -139,8 +141,10 @@ auto locate_obstacles(rs2::points& points, auto& mi, std::span<float, 2> fov) ->
 
     calculate_obstacle_distances(pcl_points, distances, fov);
 
+    float hfov_deg = (fov[0] * 180.0f) / M_PI;
+    float vfov_deg = (fov[1] * 180.0f) / M_PI;
     co_await mi->set_obstacle_distance(
-      std::span(distances), 88.0f / 72.0f, 17.5f, 300.0f, 15.0f);
+      std::span(distances), hfov_deg / 72.0f, 17.5f, 300.0f, -0.5f * hfov_deg);
   //   timer.expires_after(1s);
   //   co_await timer.async_wait(use_nothrow_awaitable);
   // }
