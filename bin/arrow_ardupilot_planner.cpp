@@ -228,7 +228,7 @@ mission2(auto& mi,
     }
     if (targets == 0) {
       // Move the rover forward initially
-      const float initial_forward_vel_x = 0.5f;
+      const float initial_forward_vel_x = 0.1f;
       std::array<float, 3> target_vel_xyz{ initial_forward_vel_x, 0.0f, 0.0f };
       co_await mi->set_target_velocity(target_vel_xyz);
     }
