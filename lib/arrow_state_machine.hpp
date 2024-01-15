@@ -112,10 +112,10 @@ class ArrowStateMachine {
       spdlog::critical("Sighted CONE");
       break;
       case ClassificationModel::Detection::ARROW_LEFT:
-      m_objectives.emplace_back(Objective::Type::ARROW_LEFT, m_current_heading, 90.0f);
+      m_objectives.emplace_back(Objective::Type::ARROW_LEFT, m_current_heading, -90.0f);
       break;
       case ClassificationModel::Detection::ARROW_RIGHT:
-      m_objectives.emplace_back(Objective::Type::ARROW_RIGHT, m_current_heading, -90.0f);
+      m_objectives.emplace_back(Objective::Type::ARROW_RIGHT, m_current_heading, 90.0f);
       break;
 
       case ClassificationModel::Detection::NONE:
