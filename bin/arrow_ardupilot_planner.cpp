@@ -286,7 +286,7 @@ int main(int argc, char* argv[]) {
   spdlog::trace("asio io_context setup");
 
   tcp::socket ap_socket(io_ctx);
-  ap_socket.connect(*tcp::resolver(io_ctx).resolve("0.0.0.0", "5760", tcp::resolver::passive));
+  ap_socket.connect(*tcp::resolver(io_ctx).resolve("0.0.0.0", "5762", tcp::resolver::passive));
   auto mi = std::make_shared<MavlinkInterface<tcp::socket>>((std::move(ap_socket)));
 
   auto [rs_pipe, fovh, fovv] = *setup_device().or_else([] (std::error_code e) {
