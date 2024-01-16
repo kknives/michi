@@ -182,10 +182,13 @@ mission2(auto& mi,
     // cv::imwrite("/tmp/im"+std::to_string(i)+".jpg", depth_frame_mat);
     auto points = co_await rs_dev->async_get_points();
 
+    // TODO: add a constexpr if to disable obstacle avoidance
     co_await locate_obstacles(points, mi, fov);
 
+    float current_yaw_deg = mi->heading();
     // Initialize the monadic interface for the SM
-    ImpureInterface sm_monad(mi->local_position());
+    ImpureInterface sm_monad(mi->local_position(), current_yaw_deg);
+    spdlog::info("YAW: {}", current_yaw_deg);
     if (sm.next(sm_monad, image, depth_frame)) {
       co_await mi->set_disarmed(); // disarm
       co_return;

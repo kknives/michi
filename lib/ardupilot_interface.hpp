@@ -84,6 +84,7 @@ struct ArdupilotState {
   std::array<float, 3> m_global_vel;
   std::array<float, 3> m_rpy;
   std::array<float, 3> m_rpy_vel;
+  float m_heading_deg;
 };
 
 template <typename I>
@@ -134,6 +135,11 @@ class MavlinkInterface
     m_ap_state.m_lat_lon_alt = {pos.lat, pos.lon, pos.alt};
     m_ap_state.m_global_vel = {pos.vx, pos.vy, pos.vz};
   }
+  auto update_heading(const mavlink_message_t* msg) -> void {
+    mavlink_global_position_int_t pos;
+    mavlink_msg_global_position_int_decode(msg, &pos);
+    m_ap_state.m_heading_deg = pos.hdg / 100.0f;
+  }
   auto update_attitude(const mavlink_message_t* msg) -> void {
     mavlink_attitude_t att;
     mavlink_msg_attitude_decode(msg, &att);
@@ -173,8 +179,12 @@ class MavlinkInterface
         spdlog::trace("Got attitude");
         update_attitude(msg);
         break;
-      case MAVLINK_MSG_ID_GLOBAL_POSITION_INT_COV:
+      case MAVLINK_MSG_ID_GLOBAL_POSITION_INT:
         spdlog::trace("Got Global Position");
+        update_heading(msg);
+        break;
+      case MAVLINK_MSG_ID_GLOBAL_POSITION_INT_COV:
+        spdlog::trace("Got Global Position cov");
         update_global_position(msg);
         break;
       case MAVLINK_MSG_ID_COMMAND_ACK:
@@ -372,6 +382,12 @@ public:
   }
   auto global_linear_velocity() -> std::span<float, 3> const {
     return std::span(m_ap_state.m_global_vel);
+  }
+  auto heading() -> float const {
+    return m_ap_state.m_heading_deg;
+  }
+  auto orientation() -> std::span<float, 3> const {
+    return std::span(m_ap_state.m_rpy);
   }
   auto set_armed(int disarm = 0) -> asio::awaitable<void> {
     mavlink_message_t msg;
