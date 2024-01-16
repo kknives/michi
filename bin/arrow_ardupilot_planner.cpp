@@ -166,6 +166,7 @@ mission2(auto& mi,
     uninit_classifier.emplace(ClassificationModel(Yolov8ArrowClassifier::make_mohnish7_model(args.get("model_path"))));
   }
   ClassificationModel classifier(std::move(uninit_classifier.value()));
+  co_await mi->init();
   co_await mi->set_guided_mode();
   co_await mi->set_armed();
   asio::steady_timer timer(this_exec);

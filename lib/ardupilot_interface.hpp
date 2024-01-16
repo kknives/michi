@@ -278,95 +278,31 @@ public:
 
     std::error_code error;
     mavlink_message_t msg;
-    auto set_param_curried = std::bind_front(mavlink_msg_param_set_pack_chan,
-                                             m_system_id,
-                                             m_my_id,
-                                             m_channel,
-                                             &msg,
-                                             m_system_id,
-                                             m_component_id);
+    const uint16_t mav_cmd_set_message_interval = 511;
+    const float disable = -1;
+    // auto set_param_curried = std::bind_front(mavlink_msg_command_long_pack_chan,
+    //                                          m_system_id,
+    //                                          m_my_id,
+    //                                          m_channel,
+    //                                          &msg,
+    //                                          m_system_id,
+    //                                          m_component_id,
+    //                                          mav_cmd_set_message_interval,
+    //                                          1);
+    // auto set_param_curried = std::bind_front(mavlink_msg_param_set_pack_chan,
+    //                                          m_system_id,
+    //                                          m_my_id,
+    //                                          m_channel,
+    //                                          &msg,
+    //                                          m_system_id,
+    //                                          m_component_id);
     bool ran_once = false;
     while (not ran_once) // RUN THIS ONLY ONCE
     {
       ran_once = true;
-      set_param_curried("SR0_RAW_SENS", 0, MAV_PARAM_TYPE_INT16);
-      tie(error, ignore) = co_await send_message(msg);
-      if (error)
-        break;
-
-      set_param_curried("SR0_EXT_STAT", 0, MAV_PARAM_TYPE_INT16);
-      tie(error, ignore) = co_await send_message(msg);
-      if (error)
-        break;
-
-      set_param_curried("SR0_RC_CHAN", 0, MAV_PARAM_TYPE_INT16);
-      tie(error, ignore) = co_await send_message(msg);
-      if (error)
-        break;
-
-      set_param_curried("SR0_RAW_CTRL", 0, MAV_PARAM_TYPE_INT16);
-      tie(error, ignore) = co_await send_message(msg);
-      if (error)
-        break;
-
-      set_param_curried("SR0_POSITION", 0, MAV_PARAM_TYPE_INT16);
-      tie(error, ignore) = co_await send_message(msg);
-      if (error)
-        break;
-
-      set_param_curried("SR0_EXTRA1", 0, MAV_PARAM_TYPE_INT16);
-      tie(error, ignore) = co_await send_message(msg);
-      if (error)
-        break;
-
-      set_param_curried("SR0_EXTRA2", 0, MAV_PARAM_TYPE_INT16);
-      tie(error, ignore) = co_await send_message(msg);
-      if (error)
-        break;
-
-      set_param_curried("SR0_EXTRA3", 0, MAV_PARAM_TYPE_INT16);
-      tie(error, ignore) = co_await send_message(msg);
-      if (error)
-        break;
-
-      set_param_curried("SR0_PARAMS", 0, MAV_PARAM_TYPE_INT16);
-      tie(error, ignore) = co_await send_message(msg);
-      if (error)
-        break;
-
-      set_param_curried("SR0_ADSB", 0, MAV_PARAM_TYPE_INT16);
-      // mavlink_msg_param_set_pack_chan(m_system_id, m_my_id,
-      // m_channel, &msg, m_system_id, m_component_id, "SR0_ADSB", 0,
-      // MAV_PARAM_TYPE_INT16);
-      tie(error, ignore) = co_await send_message(msg);
-      if (error)
-        break;
-      spdlog::info("Sent parameters");
-
-      for (int i = 0; i < 4; i++) {
-        const uint16_t mav_cmd_preflight_reboot_shutdown = 246;
-        mavlink_msg_command_int_pack_chan(m_system_id,
-                                          m_my_id,
-                                          m_channel,
-                                          &msg,
-                                          m_system_id,
-                                          m_component_id,
-                                          MAV_FRAME_LOCAL_NED,
-                                          mav_cmd_preflight_reboot_shutdown,
-                                          0,  // Unused
-                                          0,  // Unused
-                                          1,  // Reboot autopilot
-                                          0,  // Don't reboot companion computer
-                                          0,  // Don't reboot componets
-                                          0,  // For all components attached
-                                          0,  // Unused
-                                          0,  // Unused
-                                          0); // Unused
-        tie(error, ignore) = co_await send_message(msg);
-        if (error)
-          break;
-        spdlog::info("Sent reboot");
-      }
+      auto len = mavlink_msg_command_long_pack_chan(m_system_id, m_my_id, m_channel, &msg, m_system_id, m_component_id, mav_cmd_set_message_interval, 0, MAVLINK_MSG_ID_GLOBAL_POSITION_INT, 100000, INVALID, INVALID, INVALID, INVALID, INVALID);
+      spdlog::debug("Sending 10Hz rate for Global Position");
+      tie(error) = co_await m_ap_requests.async_send(asio::error_code{}, msg, use_nothrow_awaitable);
     }
     if (error) {
       spdlog::error("Could not initialize ardupilot params, asio error: {}",
