@@ -34,13 +34,14 @@ struct Objective {
 struct ImpureInterface{
   struct InputState {
     std::span<float, 3> xyz;
+    float heading_deg;
   } input;
   struct Outputs {
     int delay_sec;
     Vector3f target_xyz_pos_local;
     float yaw;
   } output;
-  ImpureInterface(std::span<float, 3> input_xyz) : input{.xyz = input_xyz} {}
+  ImpureInterface(std::span<float, 3> input_xyz, float yaw_deg) : input{.xyz = input_xyz, .heading_deg = yaw_deg} {}
 };
 class ArrowStateMachine {
   std::vector<Objective> m_objectives;
@@ -53,7 +54,7 @@ class ArrowStateMachine {
   std::optional<tObjectiveId> m_current_obj;
   std::optional<float> m_current_dist_to_obj;
   Vector3f m_current_pos;
-  float m_current_heading;
+  float m_current_heading_deg;
 
   auto get_pose_lock(cv::Mat& rgb_image,
                      std::span<float, 4> rect_vertices,
@@ -100,6 +101,8 @@ class ArrowStateMachine {
   }
   void update_state(const ImpureInterface::InputState& i) {
     m_current_pos = Vector3f(i.xyz[0], i.xyz[1], i.xyz[2]);
+    m_current_heading_deg = i.heading_deg;
+    spdlog::debug("Got heading {}",m_current_heading_deg);
     if (m_current_obj) {
       m_current_dist_to_obj.emplace(m_objectives[*m_current_obj].distance_to(m_current_pos));
     }
@@ -108,14 +111,16 @@ class ArrowStateMachine {
     // What happens when an objective is detected
     switch (classify(m_detector, rgb_image, m_detector_threshold)) {
       case ClassificationModel::Detection::CONE:
-      m_objectives.emplace_back(Objective::Type::CONE, m_current_heading, 0.0f);
+      m_objectives.emplace_back(Objective::Type::CONE, m_current_heading_deg, m_current_heading_deg);
       spdlog::critical("Sighted CONE");
       break;
       case ClassificationModel::Detection::ARROW_LEFT:
-      m_objectives.emplace_back(Objective::Type::ARROW_LEFT, m_current_heading, -90.0f);
+      m_objectives.emplace_back(Objective::Type::ARROW_LEFT, m_current_heading_deg, m_current_heading_deg-90.0f);
+      spdlog::critical("Saw LEFT");
       break;
       case ClassificationModel::Detection::ARROW_RIGHT:
-      m_objectives.emplace_back(Objective::Type::ARROW_RIGHT, m_current_heading, 90.0f);
+      m_objectives.emplace_back(Objective::Type::ARROW_RIGHT, m_current_heading_deg, m_current_heading_deg+90.0f);
+      spdlog::critical("Saw RIGHT");
       break;
 
       case ClassificationModel::Detection::NONE:
@@ -153,7 +158,7 @@ class ArrowStateMachine {
       }
       return false;
     } else {
-      set_outputs(i, 0, 0,
+      set_outputs(i, m_current_heading_deg, 0,
       seek(rgb_image, depth_image));
       return false;
     }
