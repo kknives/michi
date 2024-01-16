@@ -171,9 +171,11 @@ mission2(auto& mi,
   asio::steady_timer timer(this_exec);
   int targets = 0;
 
+  timer.expires_after(5s);
+  co_await timer.async_wait(use_nothrow_awaitable);
+
   ArrowStateMachine sm(classifier, args.get<float>("-t"));
   Vector3f last_target(0.0f, 0.0f, 0.0f);
-  float last_yaw = 0.0f;
   spdlog::info("Starting mission2");
   while (true) {
     auto rgb_frame = co_await rs_dev->async_get_rgb_frame();
