@@ -207,7 +207,7 @@ class MavlinkInterface
     auto [error, len] = co_await m_uart.async_read_some(
       asio::buffer(buffer), use_nothrow_awaitable);
     if (error) {
-      spdlog::error("Read from m_uart failed, asio error: {}", error.message());   
+      spdlog::trace("Read from m_uart failed, asio error: {}", error.message());   
       co_return error;
     }
     mavlink_message_t msg;
@@ -264,10 +264,10 @@ public:
       } else if (std::holds_alternative<std::error_code>(result)) {
       auto error = std::get<std::error_code>(result);
        if (error) {
-          spdlog::error("Couldn't receive_message: {}: {}", error.category().name(), error.message());
+          spdlog::trace("Couldn't receive_message: {}: {}", error.category().name(), error.message());
         }
       }
-      timer.expires_after(80ms);
+      timer.expires_after(20ms);
       co_await timer.async_wait(use_nothrow_awaitable);
     }
   }
