@@ -194,6 +194,7 @@ mission2(auto& mi,
     auto points = co_await rs_dev->async_get_points();
 
     // TODO: add a constexpr if to disable obstacle avoidance
+    if (not args.get<bool>("--no-avoid"))
     co_await locate_obstacles(points, mi, fov);
 
     float current_yaw_deg = mi->heading();
