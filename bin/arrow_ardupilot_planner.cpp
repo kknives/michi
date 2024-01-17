@@ -70,7 +70,6 @@ calculate_obstacle_distances(tPclPtr pc,
   std::cout << goods << "\n";
 
   float hfov_deg = (fov[0] * 180.0f) / M_PI;
-  std::string store;
   int rays = distances.size();
   for (int i = 1; i <= rays; i++) {
     pcl::PointWithRange ray;
@@ -78,16 +77,12 @@ calculate_obstacle_distances(tPclPtr pc,
     rg_img.get1dPointAverage(idx, 1, 1, 58, 58, ray);
     if (std::isinf(ray.range)) {
       distances[i-1] = 1;
-      store.append(" ");
     }
     else {
       distances[i - 1] = uint16_t(ray.range*100);
-      store.append("▅");
     }
     distances[i - 1] = distances[i - 1] ? distances[i - 1] : 1;
   }
-  // std::string result spdlog::fmt_lib::vformat("{}", store);
-  spdlog::info("▏{}▕", store);
 }
 
 tPclPtr points_to_pcl(const rs2::points& points)
