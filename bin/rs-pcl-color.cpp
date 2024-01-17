@@ -180,11 +180,18 @@ void calculate_obstacle_distances(pcl_ptr pc, std::vector<float>& distances, flo
     std::cout << goods << "\n";
 
     int rays = distances.size();
+    std::string store;
     for (int i = 1; i <= rays; i++) {
         pcl::PointWithRange ray;
         int idx = i*(88.0f/72.0f);
         rg_img.get1dPointAverage(idx, 1, 1, 58, 58, ray);
         distances[i-1] = ray.range;
+        if (std::isinf(ray.range)) {
+          store.append(" ");
+        }
+        else {
+          store.append("▅");
+        }
     }
     // float alpha = hfov / 72.0f;
     // float h = 4.0f;
@@ -193,6 +200,7 @@ void calculate_obstacle_distances(pcl_ptr pc, std::vector<float>& distances, flo
     // std::transform(begin(distances), end(distances), begin(distances), [alpha](float a) { return a*alpha; });
     // std::transform(begin(distances), end(distances), begin(distances), [x, hfov, h](float a) { return x - (h*std::tan((hfov/2.0)-a));
     // });
+    std::cout << "▏" << store << "▕\n";
     if (false) {
         printf("%f", goods[1]);
         for (int i = 1; i < rg_img.width * rg_img.height; i++) printf(" %f", *(goods+i));
