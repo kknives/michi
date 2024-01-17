@@ -204,7 +204,9 @@ mission2(auto& mi,
       co_await timer.async_wait(use_nothrow_awaitable);
       co_await mi->set_guided_mode();
     }
-    spdlog::debug("Monad O/P target: {}", sm_monad.output.target_xyz_pos_local);
+    spdlog::debug("Monad O/P target: {}, heading: {}",
+                  sm_monad.output.target_xyz_pos_local,
+                  sm_monad.output.yaw);
     if (sm_monad.output.target_xyz_pos_local != Vector3f(0.0f, 0.0f, 0.0f) and
         sm_monad.output.target_xyz_pos_local != last_target) {
       spdlog::critical("Changing targets, new: {}",
@@ -217,21 +219,21 @@ mission2(auto& mi,
       last_target = sm_monad.output.target_xyz_pos_local;
       targets++;
       co_await mi->set_target_position_local(target_xyz);
-    }
-    else {
+    } 
+    if (sm_monad.output.yaw != 0) {
       // set target yaw here
       float yaw_radian = (sm_monad.output.yaw* M_PI)/180.0f;
       Eigen::Quaternionf rot(Eigen::AngleAxis<float>(yaw_radian, Eigen::Vector3f::UnitZ()));
       std::array<float, 4> quaternion_parameters { rot.w(), rot.x(), rot.y(), rot.z() };
       co_await mi->set_target_attitude(quaternion_parameters, 0.1f);
 
-      if (int(sm_monad.output.yaw) != int(current_yaw_deg)) {
+      // if (int(sm_monad.output.yaw) != int(current_yaw_deg)) {
       spdlog::critical(
         "Turning to {}°: {}", sm_monad.output.yaw, quaternion_parameters);
         // Wait for turning to complete
-        // timer.expires_after(14s);
-        // co_await timer.async_wait(use_nothrow_awaitable);
-      }
+        timer.expires_after(4s);
+        co_await timer.async_wait(use_nothrow_awaitable);
+      // }
     }
     if (targets == 0) {
       // Move the rover forward initially
