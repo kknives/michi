@@ -261,7 +261,7 @@ int main(int argc, char* argv[]) {
     return std::string{ "yolov8" };
   }).help("model to use for arrow classification");
   args.add_argument("--no-avoid").default_value(false).implicit_value(true).help("Disable obstacle avoidance behaviour");
-  args.add_argument("-t", "--threshold").default_value(0.7f).help("Threshold for arrow detections (confidence > threshold => arrow detected)").scan<'g', float>();
+  args.add_argument("-t", "--threshold").default_value(0.5f).help("Threshold for arrow detections (confidence > threshold => arrow detected)").scan<'g', float>();
 
   int log_verbosity = 0;
   args.add_argument("-V", "--verbose")
