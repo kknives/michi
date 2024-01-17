@@ -16,6 +16,7 @@ struct Objective {
     ARROW_LEFT,
     ARROW_RIGHT,
     CONE,
+    DIRECTION,
   };
   Type type;
   float approach_heading; // Compass heading when this objective was approached
@@ -107,7 +108,7 @@ class ArrowStateMachine {
       m_current_dist_to_obj.emplace(m_objectives[*m_current_obj].distance_to(m_current_pos));
     }
   }
-  bool seek(cv::Mat& rgb_image, rs2::depth_frame& depth_image) {
+  bool seek(cv::Mat& rgb_image, rs2::depth_frame& depth_image, bool strong_only = false) {
     // What happens when an objective is detected
     switch (classify(m_detector, rgb_image, m_detector_threshold)) {
       case ClassificationModel::Detection::CONE:
@@ -124,7 +125,17 @@ class ArrowStateMachine {
       break;
 
       case ClassificationModel::Detection::NONE:
-      return false;
+      if (strong_only) return true;
+      float target_heading_deg = m_current_heading_deg;;
+      if (m_objectives.size() > 0) target_heading_deg = m_objectives.back().target_heading;
+
+      m_objectives.emplace_back(Objective::Type::DIRECTION, m_current_heading_deg, target_heading_deg);
+      float heading_radian = (m_current_heading_deg*M_PI) / 180.0f;
+      float distance_to_wp_metres = 5.0f;
+      m_objectives.back().location = m_current_pos + distance_to_wp_metres*Vector3f(std::cos(heading_radian), std::sin(heading_radian), 0.0f); 
+      m_current_obj.emplace(m_objectives.size()-1);
+      spdlog::critical("Setting waypoint");
+      return true;
     }
     m_current_obj.emplace(m_objectives.size() - 1);
     // Try to estimate position
@@ -147,18 +158,32 @@ class ArrowStateMachine {
   bool next(ImpureInterface& i, cv::Mat& rgb_image, rs2::depth_frame& depth_image) {
     update_state(i.input);
     if (m_current_obj) {
+
+      if (m_objectives[*m_current_obj].type == Objective::Type::DIRECTION) {
+        seek(rgb_image, depth_image, true);
+        if (m_objectives[*m_current_obj].type != Objective::Type::DIRECTION) {
+          set_outputs(i, 0, 0, true);
+          return false;
+        }
+      }
       // if objective reached, then set new target heading
       if (m_current_dist_to_obj < 2) {
         spdlog::critical("Current target reached");
         if (m_objectives[*m_current_obj].type == Objective::Type::CONE) return true;
         float heading_target = m_objectives[*m_current_obj].target_heading;
+        int delay = 10;
         m_current_obj.reset();
-        set_outputs(i, heading_target, 10);
+        if (m_objectives[*m_current_obj].type == Objective::Type::DIRECTION) {
+          delay = 0;
+          // heading_target = 0;
+        }
+        set_outputs(i, heading_target, delay);
         return false;
       }
+      spdlog::info("Distance to target: {}", *m_current_dist_to_obj);
       return false;
     } else {
-      set_outputs(i, m_current_heading_deg, 0,
+      set_outputs(i, 0, 0,
       seek(rgb_image, depth_image));
       return false;
     }

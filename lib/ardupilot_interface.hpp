@@ -498,7 +498,7 @@ public:
       get_uptime(),
       m_system_id,
       m_component_id,
-      MAV_FRAME_BODY_OFFSET_NED,
+      MAV_FRAME_LOCAL_NED,
       USE_POSITION,
       xyz[0],
       xyz[1],
