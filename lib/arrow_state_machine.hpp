@@ -5,6 +5,7 @@
 #include <opencv4/opencv2/core.hpp>
 #include <Eigen/Dense>
 #include <spdlog/spdlog.h>
+#include <boost/circular_buffer.hpp>
 
 #include "classification_model.hpp"
 #include "mobilenet_arrow.hpp"
@@ -56,6 +57,7 @@ class ArrowStateMachine {
   std::optional<float> m_current_dist_to_obj;
   Vector3f m_current_pos;
   float m_current_heading_deg;
+  boost::circular_buffer<ClassificationModel::Detection> m_detections;
 
   auto get_pose_lock(cv::Mat& rgb_image,
                      std::span<float, 4> rect_vertices,
@@ -111,23 +113,11 @@ class ArrowStateMachine {
   }
   bool seek(cv::Mat& rgb_image, rs2::depth_frame& depth_image, bool strong_only = false) {
     // What happens when an objective is detected
-    switch (classify(m_detector, rgb_image, m_detector_threshold)) {
-      case ClassificationModel::Detection::CONE:
-      m_objectives.emplace_back(Objective::Type::CONE, m_current_heading_deg, m_current_heading_deg);
-      spdlog::critical("Sighted CONE");
-      break;
-      case ClassificationModel::Detection::ARROW_LEFT:
-      m_objectives.emplace_back(Objective::Type::ARROW_LEFT, m_current_heading_deg, m_current_heading_deg-90.0f);
-      spdlog::critical("Saw LEFT");
-      break;
-      case ClassificationModel::Detection::ARROW_RIGHT:
-      m_objectives.emplace_back(Objective::Type::ARROW_RIGHT, m_current_heading_deg, m_current_heading_deg+90.0f);
-      spdlog::critical("Saw RIGHT");
-      break;
 
-      case ClassificationModel::Detection::NONE:
+    if (auto type_detected = classify(m_detector, rgb_image, m_detector_threshold); type_detected == ClassificationModel::Detection::NONE) {
+      if (not m_detections.empty()) m_detections.pop_front();
       if (strong_only) return true;
-      float target_heading_deg = m_current_heading_deg;;
+      float target_heading_deg = m_current_heading_deg;
       if (m_objectives.size() > 0) target_heading_deg = m_objectives.back().target_heading;
 
       m_objectives.emplace_back(Objective::Type::DIRECTION, m_current_heading_deg, target_heading_deg);
@@ -137,6 +127,29 @@ class ArrowStateMachine {
       m_current_obj.emplace(m_objectives.size()-1);
       spdlog::critical("Setting waypoint");
       return true;
+    }
+    else {
+      // An arrow or a cone got detected
+      m_detections.push_back(type_detected);
+      int lefts_detected = 0, rights_detected = 0, cones_detected = 0;
+      for (int i = 0; i < m_detections.size(); i++) {
+        lefts_detected  += m_detections[i] == ClassificationModel::Detection::ARROW_LEFT;
+        rights_detected += m_detections[i] == ClassificationModel::Detection::ARROW_RIGHT;
+        cones_detected  += m_detections[i] == ClassificationModel::Detection::CONE;
+      }
+      spdlog::debug("Detections: LEFTS: {}, RIGHTS: {}, CONES: {}", lefts_detected, rights_detected, cones_detected);
+      if (lefts_detected >= 4) {
+        m_objectives.emplace_back(Objective::Type::ARROW_LEFT, m_current_heading_deg, m_current_heading_deg-90.0f);
+        spdlog::critical("Saw LEFT");
+      } else if (rights_detected >= 4) {
+        m_objectives.emplace_back(Objective::Type::ARROW_RIGHT, m_current_heading_deg, m_current_heading_deg+90.0f);
+        spdlog::critical("Saw RIGHT");
+      } else if (cones_detected >= 4) {
+        m_objectives.emplace_back(Objective::Type::CONE, m_current_heading_deg, m_current_heading_deg);
+        spdlog::critical("Sighted CONE");
+      } else {
+        return true;
+      }
     }
     m_current_obj.emplace(m_objectives.size() - 1);
     // Try to estimate position
@@ -189,9 +202,9 @@ class ArrowStateMachine {
       return false;
     }
   }
-  ArrowStateMachine(ClassificationModel& m, float detection_threshold = 0.6f)
+  ArrowStateMachine(ClassificationModel& m, float detection_threshold = 0.6f, int detection_buffer_len = 5)
     : m_detector(std::move(m))
-    , m_detector_threshold(detection_threshold)
+    , m_detector_threshold(detection_threshold), m_detections(detection_buffer_len)
   {
   }
 };
