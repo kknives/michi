@@ -137,7 +137,7 @@ class ArrowStateMachine {
         rights_detected += m_detections[i] == ClassificationModel::Detection::ARROW_RIGHT;
         cones_detected  += m_detections[i] == ClassificationModel::Detection::CONE;
       }
-      spdlog::debug("Detections: LEFTS: {}, RIGHTS: {}, CONES: {}", lefts_detected, rights_detected, cones_detected);
+      spdlog::info("Detections: LEFTS: {}, RIGHTS: {}, CONES: {}", lefts_detected, rights_detected, cones_detected);
       if (lefts_detected >= 4) {
         m_objectives.emplace_back(Objective::Type::ARROW_LEFT, m_current_heading_deg, m_current_heading_deg-90.0f);
         spdlog::critical("Saw LEFT");

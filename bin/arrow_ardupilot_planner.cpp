@@ -213,7 +213,7 @@ mission2(auto& mi,
                   sm_monad.output.yaw);
     if (sm_monad.output.target_xyz_pos_local != Vector3f(0.0f, 0.0f, 0.0f) and
         sm_monad.output.target_xyz_pos_local != last_target) {
-      spdlog::critical("Changing targets, new: {}",
+      spdlog::critical("Changing target# {}, new: {}", targets,
                        sm_monad.output.target_xyz_pos_local);
       std::array<float, 3> target_xyz{
         sm_monad.output.target_xyz_pos_local[0],
