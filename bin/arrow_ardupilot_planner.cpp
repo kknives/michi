@@ -76,12 +76,12 @@ calculate_obstacle_distances(tPclPtr pc,
     int idx = i * (hfov_deg / 72.0f);
     rg_img.get1dPointAverage(idx, 1, 1, 58, 58, ray);
     if (std::isinf(ray.range)) {
-      distances[i-1] = 1;
+      distances[i-1] = UINT16_MAX;
     }
     else {
       distances[i - 1] = uint16_t(ray.range*100);
     }
-    distances[i - 1] = distances[i - 1] ? distances[i - 1] : 1;
+    distances[i - 1] = distances[i - 1] ? distances[i - 1] : UINT16_MAX;
   }
 }
 
