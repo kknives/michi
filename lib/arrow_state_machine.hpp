@@ -156,7 +156,8 @@ class ArrowStateMachine {
     cv::Rect bb = get_bounding_box(m_detector);
     if (auto dist = get_depth_lock(depth_image, bb); dist.has_value()) {
       // Set target location to this distance
-      m_objectives.back().location = m_current_pos + Vector3f(*dist, 0.0f, 0.0f);
+      float heading_radian = (m_current_heading_deg*M_PI) / 180.0f;
+      m_objectives.back().location = m_current_pos + *dist*Vector3f(std::cos(heading_radian), std::sin(heading_radian), 0.0f); 
       spdlog::critical("Target at {}m away", *dist);
       // Set yaw target
       return true;
