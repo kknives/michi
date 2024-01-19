@@ -66,8 +66,6 @@ calculate_obstacle_distances(tPclPtr pc,
                               min_range,
                               border);
   float* goods = rg_img.getRangesArray();
-  std::cout << rg_img << "\n";
-  std::cout << goods << "\n";
 
   float hfov_deg = (fov[0] * 180.0f) / M_PI;
   int rays = distances.size();
