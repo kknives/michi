@@ -1,4 +1,5 @@
 #include <argparse/argparse.hpp>
+#include <git.h>
 
 #include "ardupilot_interface.hpp"
 #include <cstdint>
@@ -285,7 +286,7 @@ int main(int argc, char* argv[]) {
   }
 
   print("{}\n",banner);
-  spdlog::info("Starting ArrowArdupilotPlanner version {}", "version_string");
+  spdlog::info("Starting ArrowArdupilotPlanner {} from {}", git_Describe(), git_CommitDate());
   switch (log_verbosity) {
     case 0:
     spdlog::set_level(spdlog::level::info);
