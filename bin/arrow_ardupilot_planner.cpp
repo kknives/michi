@@ -81,6 +81,7 @@ calculate_obstacle_distances(tPclPtr pc,
     }
     distances[i - 1] = distances[i - 1] ? distances[i - 1] : UINT16_MAX;
   }
+  spdlog::debug("Distances: {}", distances);
 }
 
 tPclPtr points_to_pcl(const rs2::points& points)
