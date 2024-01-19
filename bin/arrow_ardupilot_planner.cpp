@@ -177,7 +177,9 @@ mission2(auto& mi,
   timer.expires_after(5s);
   co_await timer.async_wait(use_nothrow_awaitable);
 
-  ArrowStateMachine sm(classifier, args.get<float>("-t"));
+  const float turning_vel = args.get<float>("--turning-spd");
+  const float initial_forward_vel_x = args.get<float>("--velocity");
+  ArrowStateMachine sm(classifier, args.get<float>("-t"), 5, args.get<float>("-w"), args.get<float>("-d"));
   Vector3f last_target(0.0f, 0.0f, 0.0f);
   spdlog::info("Starting mission2");
   while (true) {
@@ -228,7 +230,7 @@ mission2(auto& mi,
       float yaw_radian = (sm_monad.output.yaw* M_PI)/180.0f;
       Eigen::Quaternionf rot(Eigen::AngleAxis<float>(yaw_radian, Eigen::Vector3f::UnitZ()));
       std::array<float, 4> quaternion_parameters { rot.w(), rot.x(), rot.y(), rot.z() };
-      co_await mi->set_target_attitude(quaternion_parameters, 0.1f);
+      co_await mi->set_target_attitude(quaternion_parameters, turning_vel);
 
       // if (int(sm_monad.output.yaw) != int(current_yaw_deg)) {
       spdlog::critical(
@@ -240,7 +242,6 @@ mission2(auto& mi,
     }
     if (targets == 0) {
       // Move the rover forward initially
-      const float initial_forward_vel_x = 0.1f;
       std::array<float, 3> target_vel_xyz{ initial_forward_vel_x, 0.0f, 0.0f };
       co_await mi->set_target_velocity(target_vel_xyz);
     }
@@ -261,6 +262,10 @@ int main(int argc, char* argv[]) {
   }).help("model to use for arrow classification");
   args.add_argument("--no-avoid").default_value(false).implicit_value(true).help("Disable obstacle avoidance behaviour");
   args.add_argument("-t", "--threshold").default_value(0.5f).help("Threshold for arrow detections (confidence > threshold => arrow detected)").scan<'g', float>();
+  args.add_argument("-w", "--wp-threshold").default_value(2.0f).help("Distance threshold marking a waypoint as reached").scan<'g', float>();
+  args.add_argument("-d", "--waypoint-dist").default_value(5.0f).help("Distance between consecutive waypoints").scan<'g', float>();
+  args.add_argument("--turning-spd").default_value(0.1f).help("Throttle when turning").scan<'g', float>();
+  args.add_argument("--velocity").default_value(0.1f).help("Crusing speed").scan<'g', float>();
 
   int log_verbosity = 0;
   args.add_argument("-V", "--verbose")
