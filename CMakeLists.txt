@@ -19,6 +19,13 @@ find_package(spdlog REQUIRED)
 pkg_check_modules(MAVLink mavlink_c)
 pkg_check_modules(Asio asio)
 
+include(FetchContent)
+FetchContent_Declare(cmake_git_version_tracking                   
+  GIT_REPOSITORY https://github.com/andrew-hardin/cmake-git-version-tracking.git
+  GIT_TAG 904dbda1336ba4b9a1415a68d5f203f576b696bb
+)
+FetchContent_MakeAvailable(cmake_git_version_tracking)
+
 add_library(Michi lib/realsense_generator.cpp lib/mobilenet_arrow.cpp lib/ardupilot_interface.cpp lib/yolov8_arrow.cpp)
 target_compile_options(Michi PUBLIC -fcoroutines)
 target_include_directories(Michi PUBLIC lib ${Asio_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS} ${realsense_INCLUDE_DIR}
@@ -63,7 +70,7 @@ find_package(argparse REQUIRED)
 add_executable(arar_planner bin/arrow_ardupilot_planner.cpp)
 add_dependencies(arar_planner Michi)
 target_include_directories(arar_planner PRIVATE argparse)
-target_link_libraries(arar_planner PRIVATE Michi -fsanitize=address)
+target_link_libraries(arar_planner PRIVATE Michi cmake_git_version_tracking -fsanitize=address)
 
 option(BUILD_MOBILENET_SCRIPT "Build run_mobilenet_arrow.cpp for running models" OFF)
 if (BUILD_MOBILENET_SCRIPT)
