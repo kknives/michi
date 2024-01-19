@@ -48,6 +48,8 @@ struct ImpureInterface{
 class ArrowStateMachine {
   std::vector<Objective> m_objectives;
   using tObjectiveId = int;
+  float m_waypoint_distance;
+  float m_waypoint_threshold;
 
   // std::unordered_map<Position, tObjectiveId> m_reached;
   ClassificationModel m_detector;
@@ -122,8 +124,7 @@ class ArrowStateMachine {
 
       m_objectives.emplace_back(Objective::Type::DIRECTION, m_current_heading_deg, target_heading_deg);
       float heading_radian = (m_current_heading_deg*M_PI) / 180.0f;
-      float distance_to_wp_metres = 2.0f;
-      m_objectives.back().location = m_current_pos + distance_to_wp_metres*Vector3f(std::cos(heading_radian), std::sin(heading_radian), 0.0f); 
+      m_objectives.back().location = m_current_pos + m_waypoint_distance*Vector3f(std::cos(heading_radian), std::sin(heading_radian), 0.0f); 
       m_current_obj.emplace(m_objectives.size()-1);
       spdlog::critical("Setting waypoint");
       return true;
@@ -182,7 +183,7 @@ class ArrowStateMachine {
         }
       }
       // if objective reached, then set new target heading
-      if (m_current_dist_to_obj < 2) {
+      if (m_current_dist_to_obj < m_waypoint_threshold) {
         spdlog::critical("Current target reached");
         if (m_objectives[*m_current_obj].type == Objective::Type::CONE) return true;
         float heading_target = m_objectives[*m_current_obj].target_heading;
@@ -203,9 +204,10 @@ class ArrowStateMachine {
       return false;
     }
   }
-  ArrowStateMachine(ClassificationModel& m, float detection_threshold = 0.6f, int detection_buffer_len = 5)
+  ArrowStateMachine(ClassificationModel& m, float detection_threshold = 0.6f, int detection_buffer_len = 5, float wp_threshold = 2.0f, float wp_distance = 2.0f)
     : m_detector(std::move(m))
-    , m_detector_threshold(detection_threshold), m_detections(detection_buffer_len)
+    , m_detector_threshold(detection_threshold), m_detections(detection_buffer_len),
+  m_waypoint_threshold(wp_threshold), m_waypoint_distance(wp_distance)
   {
   }
 };
