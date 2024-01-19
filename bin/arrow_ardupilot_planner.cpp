@@ -244,7 +244,7 @@ mission2(auto& mi,
       std::array<float, 3> target_vel_xyz{ initial_forward_vel_x, 0.0f, 0.0f };
       co_await mi->set_target_velocity(target_vel_xyz);
     }
-    timer.expires_after(800ms);
+    timer.expires_after(80ms);
     co_await timer.async_wait(use_nothrow_awaitable);
   }
 }
