@@ -122,7 +122,7 @@ class ArrowStateMachine {
 
       m_objectives.emplace_back(Objective::Type::DIRECTION, m_current_heading_deg, target_heading_deg);
       float heading_radian = (m_current_heading_deg*M_PI) / 180.0f;
-      float distance_to_wp_metres = 5.0f;
+      float distance_to_wp_metres = 2.0f;
       m_objectives.back().location = m_current_pos + distance_to_wp_metres*Vector3f(std::cos(heading_radian), std::sin(heading_radian), 0.0f); 
       m_current_obj.emplace(m_objectives.size()-1);
       spdlog::critical("Setting waypoint");
