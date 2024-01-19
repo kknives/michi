@@ -19,15 +19,10 @@ find_package(spdlog REQUIRED)
 pkg_check_modules(MAVLink mavlink_c)
 pkg_check_modules(Asio asio)
 
-include(FetchContent)
-FetchContent_Declare(cmake_git_version_tracking                   
-  GIT_REPOSITORY https://github.com/andrew-hardin/cmake-git-version-tracking.git
-  GIT_TAG 904dbda1336ba4b9a1415a68d5f203f576b696bb
-)
-FetchContent_MakeAvailable(cmake_git_version_tracking)
+add_subdirectory(cmake/cmake-git-version-tracking)
 
 add_library(Michi lib/realsense_generator.cpp lib/mobilenet_arrow.cpp lib/ardupilot_interface.cpp lib/yolov8_arrow.cpp)
-target_compile_options(Michi PUBLIC -fcoroutines)
+target_compile_options(Michi PUBLIC -fcoroutines -fdiagnostics-color=always)
 target_include_directories(Michi PUBLIC lib ${Asio_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS} ${realsense_INCLUDE_DIR}
     ${PCL_INCLUDE_DIRS} PRIVATE ${MAVLink_INCLUDE_DIRS})
 target_link_libraries(Michi PRIVATE ${PCL_LIBRARIES} ${OpenCV_LIBS}
