@@ -20,6 +20,7 @@
 #include <pcl/common/angles.h>
 #include <pcl/point_types.h>
 #include <pcl/filters/passthrough.h>
+#include <pcl/sample_consensus/sac_model_plane.h>
 #include <pcl/sample_consensus/method_types.h>
 #include <pcl/sample_consensus/model_types.h>
 #include <pcl/segmentation/sac_segmentation.h>
@@ -110,43 +111,116 @@ tPclPtr points_to_pcl(const rs2::points& points)
     return cloud;
 }
 
-auto locate_obstacles(rs2::points& points, auto& mi, std::span<float, 2> fov) -> asio::awaitable<void> {
-  spdlog::debug("Inside locate_obstacles");
-  asio::steady_timer timer(co_await asio::this_coro::executor);
-  
-  tPclPtr cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>), obstacle_cloud(new pcl::PointCloud<pcl::PointXYZ>);
-  pcl::PassThrough<pcl::PointXYZ> pass_filter;
-  pcl::VoxelGrid<pcl::PointXYZ> voxel_filter;
-  pcl::SACSegmentation<pcl::PointXYZ> seg;
-  std::array<uint16_t, 72> distances;
-  pcl::ExtractIndices<pcl::PointXYZ> extract;
-  pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
-  pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
-  // for (;;) {
+void
+selectOutsideGroundPlane(const tPclPtr input_cloud,
+                         Eigen::Vector4f& plane_coefficients,
+                         float threshold,
+                         std::vector<int>& inliers)
+{
+    int nr_p = 0;
+    inliers.resize(input_cloud->size());
+
+    float threshold_close = threshold;
+    float threshold_far = 0.1;
+    float threshold_boundary = 1.5 * 1.5; // pre-squared
+
+    // Iterate through the 3d points and calculate the distances from them to
+    // the plane
+    for (size_t i = 0; i < input_cloud->size(); ++i) {
+        // Calculate the distance from the point to the plane normal as the dot
+        // product D = (P-A).N/|N|
+        Eigen::Vector4f pt(input_cloud->points[i].x,
+                           input_cloud->points[i].y,
+                           input_cloud->points[i].z,
+                           1);
+
+        float distance = fabsf(plane_coefficients.dot(pt));
+
+        // check to see whether the point is near or far from us
+        float source_distance = std::pow(input_cloud->points[i].x, 2) +
+                                std::pow(input_cloud->points[i].y, 2);
+        bool near = source_distance < threshold_boundary;
+
+        if ((near && distance < threshold_close) ||
+            (!near &&
+             distance <
+               threshold_far)) // (near ? threshold_close : threshold_far))
+        {
+      // Returns the indices of the points whose distances are smaller than the
+      // threshold
+      inliers[nr_p] = i;
+      ++nr_p;
+        }
+    }
+    inliers.resize(nr_p);
+}
+bool
+remove_groundplane(Eigen::Vector4f& groundplane_model_,
+                   const tPclPtr input_cloud,
+                   tPclPtr output_cloud)
+{
+    // pcl::copyPointCloud(*input_cloud, *output_cloud);
+    pcl::SampleConsensusModelPlane<pcl::PointXYZ> plane_model =
+      pcl::SampleConsensusModelPlane<pcl::PointXYZ>(input_cloud);
+
+    pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
+    //   selectWithinDistance (const Eigen::VectorXf &model_coefficients,
+    //                const double threshold,
+    //                std::vector<int> &inliers) override;
+    // plane_model.selectWithinDistance(groundplane_model_,
+    // groundplane_threshold_, inliers->indices);
+    float groundplane_threshold_ = 0.3f;
+    selectOutsideGroundPlane(input_cloud,
+                             groundplane_model_,
+                             groundplane_threshold_,
+                             inliers->indices);
+
+    // pcl::copyPointCloud<pcl::PointXYZ>(*input_cloud, inliers, *output_cloud);
+    pcl::ExtractIndices<pcl::PointXYZ> extract;
+    extract.setInputCloud(input_cloud);
+    extract.setIndices(inliers);
+    extract.setNegative(true); // points not matching the ground plane
+
+    extract.filter(*output_cloud);
+
+    return true;
+}
+auto
+locate_obstacles(rs2::points& points,
+                 auto& mi,
+                 std::span<float, 2> fov,
+                 float distance_threshold) -> asio::awaitable<void>
+{
+    spdlog::debug("Inside locate_obstacles");
+    asio::steady_timer timer(co_await asio::this_coro::executor);
+
+    tPclPtr cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>),
+      obstacle_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::PassThrough<pcl::PointXYZ> pass_filter;
+    pcl::VoxelGrid<pcl::PointXYZ> voxel_filter;
+    pcl::SACSegmentation<pcl::PointXYZ> seg;
+    std::array<uint16_t, 72> distances;
+    pcl::ExtractIndices<pcl::PointXYZ> extract;
+    pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
+    pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
+    // for (;;) {
     spdlog::debug("Got points");
     auto pcl_points = points_to_pcl(points);
-    pass_filter.setInputCloud(pcl_points);
-    pass_filter.setFilterFieldName("z");
-    pass_filter.setFilterLimits(0.0, 1.0);
-    pass_filter.filter(*cloud_filtered);
-
-    voxel_filter.setInputCloud(cloud_filtered);
+    voxel_filter.setInputCloud(pcl_points);
     voxel_filter.setLeafSize(0.01f,0.01f,0.01f);
     voxel_filter.filter(*cloud_filtered);
     
     seg.setOptimizeCoefficients(true);
     seg.setModelType(pcl::SACMODEL_PLANE);
     seg.setMethodType(pcl::SAC_RANSAC);
-    seg.setDistanceThreshold(0.1);
+    seg.setDistanceThreshold(distance_threshold);
     seg.setInputCloud(cloud_filtered);
     seg.segment(*inliers, *coefficients);
 
-    extract.setInputCloud(cloud_filtered);
-    extract.setIndices(inliers);
-    extract.setNegative(false);
-    extract.filter(*obstacle_cloud);
+    Eigen::Vector4f ground_coeff(coefficients->values[0], coefficients->values[1], coefficients->values[2], coefficients->values[3]);
+    remove_groundplane(ground_coeff, cloud_filtered, obstacle_cloud);
 
-    calculate_obstacle_distances(pcl_points, distances, fov);
+    calculate_obstacle_distances(obstacle_cloud, distances, fov);
 
     float hfov_deg = (fov[0] * 180.0f) / M_PI;
     float vfov_deg = (fov[1] * 180.0f) / M_PI;
@@ -184,6 +258,7 @@ mission2(auto& mi,
 
   const float turning_vel = args.get<float>("--turning-spd");
   const float initial_forward_vel_x = args.get<float>("--velocity");
+  const float ground_detection_threshold = args.get<float>("-g");
   ArrowStateMachine sm(classifier, args.get<float>("-t"), 5, args.get<float>("-w"), args.get<float>("-d"));
   Vector3f last_target(0.0f, 0.0f, 0.0f);
   spdlog::info("Starting mission2");
@@ -196,7 +271,7 @@ mission2(auto& mi,
 
     // TODO: add a constexpr if to disable obstacle avoidance
     if (not args.get<bool>("--no-avoid"))
-    co_await locate_obstacles(points, mi, fov);
+    co_await locate_obstacles(points, mi, fov, ground_detection_threshold);
 
     float current_yaw_deg = mi->heading();
     // Initialize the monadic interface for the SM
@@ -270,6 +345,7 @@ int main(int argc, char* argv[]) {
   args.add_argument("-w", "--wp-threshold").default_value(2.0f).help("Distance threshold marking a waypoint as reached").scan<'g', float>();
   args.add_argument("-d", "--waypoint-dist").default_value(5.0f).help("Distance between consecutive waypoints").scan<'g', float>();
   args.add_argument("--turning-spd").default_value(0.1f).help("Throttle when turning").scan<'g', float>();
+  args.add_argument("-g", "--ground-threshold").default_value(0.025f).help("Ground detection threshold for pointcloud processing").scan<'g', float>();
   args.add_argument("--velocity").default_value(0.1f).help("Crusing speed").scan<'g', float>();
 
   int log_verbosity = 0;
