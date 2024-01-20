@@ -19,6 +19,9 @@
 #include <pcl/ModelCoefficients.h>
 #include <pcl/filters/extract_indices.h>
 #include <pcl/filters/statistical_outlier_removal.h>
+
+#include <pcl/segmentation/min_cut_segmentation.h>
+#include <pcl/segmentation/progressive_morphological_filter.h>
 #include <pcl/filters/voxel_grid.h>
 
 #include <pcl/search/octree.h>
@@ -83,7 +86,7 @@ int main(int argc, char * argv[]) try
 
     filtered = dec_filter.process(filtered);
     filtered = temp_filter.process(filtered);
-    // filtered = hole_filter.process(filtered);
+    filtered = hole_filter.process(filtered);
 
     depth = filtered;
 
@@ -105,27 +108,61 @@ int main(int argc, char * argv[]) try
     voxel_filter.filter(*cloud_filtered);
     
     pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
-    pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
+    pcl::PointIndices::Ptr before_inliers (new pcl::PointIndices);
+    // pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
+    pcl::IndicesPtr indices (new std::vector <int>);
 
-    pcl::SACSegmentation<pcl::PointXYZ> seg;
-    seg.setOptimizeCoefficients(true);
-    seg.setModelType(pcl::SACMODEL_PLANE);
-    seg.setMethodType(pcl::SAC_RANSAC);
-    seg.setDistanceThreshold(0.1);
-    seg.setInputCloud(cloud_filtered);
-    seg.segment(*inliers, *coefficients);
+    // pcl::SACSegmentation<pcl::PointXYZ> seg;
+    // seg.setOptimizeCoefficients(true);
+    // seg.setModelType(pcl::SACMODEL_PLANE);
+    // seg.setMethodType(pcl::SAC_RANSAC);
+    // seg.setDistanceThreshold(1.0);
+    // seg.setInputCloud(cloud_filtered);
+    // seg.segment(*inliers, *coefficients);
     
-    pcl::ExtractIndices<pcl::PointXYZ> extract;
-    pcl_ptr cloud_p(new pcl::PointCloud<pcl::PointXYZ>);
+      pcl::ProgressiveMorphologicalFilter<pcl::PointXYZ> pmf;
+      pmf.setInputCloud (cloud_filtered);
+      pmf.setMaxWindowSize (50);
+      pmf.setSlope (1.0f);
+      pmf.setInitialDistance (0.0f);
+      pmf.setMaxDistance (3.0f);
+      pmf.extract (before_inliers->indices);
 
-    extract.setInputCloud(cloud_filtered);
-    extract.setIndices(inliers);
-    extract.setNegative(false);
-    extract.filter(*cloud_p);
+pcl::PointCloud<pcl::PointXYZ>::Ptr foreground_points(new pcl::PointCloud<pcl::PointXYZ> ());
 
-    pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> octree(120.0f);
-    octree.setInputCloud(cloud_p);
-    octree.addPointsFromInputCloud();
+  pcl::PointXYZ point;
+    // std::cout << before_inliers->indices[0] << '\n';
+  point.x = 1;
+
+  point.y = 1;
+
+  point.z = 0;
+
+  foreground_points->points.push_back(point);
+
+   pcl::MinCutSegmentation<pcl::PointXYZ> seg;
+    seg.setInputCloud (cloud_filtered);
+    seg.setIndices (before_inliers);
+    seg.setForegroundPoints(foreground_points);
+      seg.setSigma (0.25);
+      seg.setRadius (3.0433856);
+
+      seg.setNumberOfNeighbours (14);
+    std::vector <pcl::PointIndices> clusters;
+
+  seg.extract (clusters);
+
+    // pcl::ExtractIndices<pcl::PointXYZ> extract;
+    // pcl_ptr cloud_p(new pcl::PointCloud<pcl::PointXYZ>);
+
+    // extract.setInputCloud(cloud_filtered);
+    // extract.setIndices(inliers);
+    // extract.setNegative(true);
+    // extract.filter(*cloud_p);
+
+    // pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> octree(120.0f);
+    // octree.setInputCloud(cloud_p);
+    // octree.addPointsFromInputCloud();
     // pcl::PointIndices::Ptr region (new pcl::pointIndices);
 
     std::vector<float> distances(72);
@@ -134,7 +171,9 @@ int main(int argc, char * argv[]) try
 
     pcl::visualization::CloudViewer viewer("CloudViewer");
     viewer.showCloud(pcl_points, "Filtered Cloud");
-    viewer.showCloud(cloud_p, "Ground Plane");
+    pcl::PointCloud <pcl::PointXYZRGB>::Ptr colored_cloud = seg.getColoredCloud ();
+    viewer.showCloud(colored_cloud, "Ground Plane");
+    std::cout << "I made it" << '\n';
 
     viewer.runOnVisualizationThreadOnce([&fov](pcl::visualization::PCLVisualizer& viewer) {
         Eigen::Affine3f m = Eigen::Affine3f::Identity();
@@ -147,7 +186,7 @@ int main(int argc, char * argv[]) try
                        0.0f,  4.0f,
                        1.0f,  0.0f, 0.0f);
         viewer.setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_REPRESENTATION, pcl::visualization::PCL_VISUALIZER_REPRESENTATION_WIREFRAME, "cube");
-        viewer.setPointCloudRenderingProperties(pcl::visualization::RenderingProperties::PCL_VISUALIZER_COLOR, 1.0f,0.1f,0.3f, "Ground Plane");
+        // viewer.setPointCloudRenderingProperties(pcl::visualization::RenderingProperties::PCL_VISUALIZER_COLOR, 1.0f,0.1f,0.3f, "Ground Plane");
     });
 
     while(!viewer.wasStopped());
