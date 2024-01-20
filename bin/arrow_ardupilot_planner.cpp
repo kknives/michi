@@ -1,5 +1,5 @@
 #include <argparse/argparse.hpp>
-#include <git.h>
+// #include <git.h>
 
 #include "ardupilot_interface.hpp"
 #include <cstdint>
@@ -38,6 +38,7 @@ const char* banner = R"Banner(
  >=>      >=>   >=>     >=>      >=>   >=>    >=>         >=>  >=>   >=>   >=>  >=>  >=>  >=> >>         >=>
 >=>        >=> >==>    >=>        >=> >==>    >=>        >==>   >==>>>==> >==>  >=> >==>  >=>  >====>   >==>
 )Banner";
+const char* GIT_SHA1_HASH = "01234569abcdef7afa1d2683a099c7af48a523c1";
 
 using fmt::print;
 using tPclPtr = pcl::PointCloud<pcl::PointXYZ>::Ptr;
@@ -286,7 +287,7 @@ int main(int argc, char* argv[]) {
   }
 
   print("{}\n",banner);
-  spdlog::info("Starting ArrowArdupilotPlanner {} from {}", git_Describe(), git_CommitDate());
+  spdlog::info("Starting ArrowArdupilotPlanner {}", GIT_SHA1_HASH);
   switch (log_verbosity) {
     case 0:
     spdlog::set_level(spdlog::level::info);
