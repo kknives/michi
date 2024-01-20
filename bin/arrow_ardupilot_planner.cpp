@@ -72,16 +72,19 @@ calculate_obstacle_distances(tPclPtr pc,
   float hfov_deg = (fov[0] * 180.0f) / M_PI;
   int rays = distances.size();
   for (int i = 1; i <= rays; i++) {
-    pcl::PointWithRange ray;
     int idx = i * (hfov_deg / 72.0f);
-    rg_img.get1dPointAverage(idx, 1, 1, 58, 58, ray);
-    if (std::isinf(ray.range)) {
-      distances[i-1] = UINT16_MAX;
+    uint16_t depth = UINT16_MAX;
+    for (int j = idx; j < i * (hfov_deg / 72.0f); j++) {
+      pcl::PointWithRange ray;
+      rg_img.get1dPointAverage(j, 1, 0, 58, 58, ray);
+      if (std::isinf(ray.range)) {
+        continue;
+      }
+      else {
+        depth = std::min(depth, uint16_t(ray.range*100));
+      }
     }
-    else {
-      distances[i - 1] = uint16_t(ray.range*100);
-    }
-    distances[i - 1] = distances[i - 1] ? distances[i - 1] : UINT16_MAX;
+    distances[i - 1] = depth ? depth : 1;
   }
   spdlog::debug("Distances: {}", distances);
 }
