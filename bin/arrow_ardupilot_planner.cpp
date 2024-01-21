@@ -157,7 +157,7 @@ selectOutsideGroundPlane(const tPclPtr input_cloud,
 bool
 remove_groundplane(Eigen::Vector4f& groundplane_model_,
                    const tPclPtr input_cloud,
-                   tPclPtr output_cloud)
+                   tPclPtr output_cloud, float ground_plane_threshold)
 {
     // pcl::copyPointCloud(*input_cloud, *output_cloud);
     pcl::SampleConsensusModelPlane<pcl::PointXYZ> plane_model =
@@ -169,10 +169,9 @@ remove_groundplane(Eigen::Vector4f& groundplane_model_,
     //                std::vector<int> &inliers) override;
     // plane_model.selectWithinDistance(groundplane_model_,
     // groundplane_threshold_, inliers->indices);
-    float groundplane_threshold_ = 0.3f;
     selectOutsideGroundPlane(input_cloud,
                              groundplane_model_,
-                             groundplane_threshold_,
+                             ground_plane_threshold,
                              inliers->indices);
 
     // pcl::copyPointCloud<pcl::PointXYZ>(*input_cloud, inliers, *output_cloud);
@@ -218,7 +217,7 @@ locate_obstacles(rs2::points& points,
     seg.segment(*inliers, *coefficients);
 
     Eigen::Vector4f ground_coeff(coefficients->values[0], coefficients->values[1], coefficients->values[2], coefficients->values[3]);
-    remove_groundplane(ground_coeff, cloud_filtered, obstacle_cloud);
+    remove_groundplane(ground_coeff, cloud_filtered, obstacle_cloud, distance_threshold);
 
     calculate_obstacle_distances(obstacle_cloud, distances, fov);
 
@@ -345,7 +344,7 @@ int main(int argc, char* argv[]) {
   args.add_argument("-w", "--wp-threshold").default_value(2.0f).help("Distance threshold marking a waypoint as reached").scan<'g', float>();
   args.add_argument("-d", "--waypoint-dist").default_value(5.0f).help("Distance between consecutive waypoints").scan<'g', float>();
   args.add_argument("--turning-spd").default_value(0.1f).help("Throttle when turning").scan<'g', float>();
-  args.add_argument("-g", "--ground-threshold").default_value(0.025f).help("Ground detection threshold for pointcloud processing").scan<'g', float>();
+  args.add_argument("-g", "--ground-threshold").default_value(0.3f).help("Ground detection threshold for pointcloud processing").scan<'g', float>();
   args.add_argument("--velocity").default_value(0.1f).help("Crusing speed").scan<'g', float>();
 
   int log_verbosity = 0;
