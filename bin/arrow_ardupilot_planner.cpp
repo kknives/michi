@@ -189,7 +189,7 @@ auto
 locate_obstacles(rs2::points& points,
                  auto& mi,
                  std::span<float, 2> fov,
-                 float distance_threshold, pcl::ModelCoefficients::Ptr coefficients) -> asio::awaitable<void>
+                 float distance_threshold, Eigen::Vector4f& valid_coeff) -> asio::awaitable<void>
 {
     spdlog::debug("Inside locate_obstacles");
     asio::steady_timer timer(co_await asio::this_coro::executor);
@@ -201,7 +201,7 @@ locate_obstacles(rs2::points& points,
     pcl::SACSegmentation<pcl::PointXYZ> seg;
     std::array<uint16_t, 72> distances;
     pcl::ExtractIndices<pcl::PointXYZ> extract;
-    // pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
+    pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
     pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
     // for (;;) {
     spdlog::debug("Got points: {}", points.size());
@@ -209,18 +209,39 @@ locate_obstacles(rs2::points& points,
     voxel_filter.setInputCloud(pcl_points);
     voxel_filter.setLeafSize(0.01f,0.01f,0.01f);
     voxel_filter.filter(*cloud_filtered);
-  
-    if (points.size() > 500) {
-      seg.setOptimizeCoefficients(true);
-      seg.setModelType(pcl::SACMODEL_PLANE);
-      seg.setMethodType(pcl::SAC_RANSAC);
-      seg.setDistanceThreshold(distance_threshold);
-      seg.setInputCloud(cloud_filtered);
-      seg.segment(*inliers, *coefficients);
-    }
 
-    Eigen::Vector4f ground_coeff(coefficients->values[0], coefficients->values[1], coefficients->values[2], coefficients->values[3]);
-    remove_groundplane(ground_coeff, cloud_filtered, obstacle_cloud);
+    bool validity_checks = true;
+    if (points.size() < 300)
+        validity_checks = false;
+    if (validity_checks) {
+        seg.setOptimizeCoefficients(true);
+        seg.setModelType(pcl::SACMODEL_PLANE);
+        seg.setMethodType(pcl::SAC_RANSAC);
+        seg.setDistanceThreshold(distance_threshold);
+        seg.setInputCloud(cloud_filtered);
+        seg.segment(*inliers, *coefficients);
+    }
+    if (std::abs(coefficients->values[0]) > 0.1 ||     // x
+        std::abs(coefficients->values[1]) > 0.1 ||     // y
+        std::abs(coefficients->values[2] - 1.0) > 0.1) // z
+    {
+        spdlog::info("Ground plane is significantly off horizontal, not "
+                     "updating until next pointcloud.");
+        validity_checks = false;
+    }
+    if (std::abs(coefficients->values[3]) > 0.05) {
+        spdlog::info("Ground plane has an altitude that exceeds 50mm from the "
+                     "base, not updating until next pointcloud.");
+        validity_checks = false;
+    }
+    if (validity_checks) {
+        Eigen::Vector4f ground_coeff(coefficients->values[0],
+                                     coefficients->values[1],
+                                     coefficients->values[2],
+                                     coefficients->values[3]);
+        valid_coeff = ground_coeff;
+    }
+    remove_groundplane(valid_coeff, cloud_filtered, obstacle_cloud);
 
     calculate_obstacle_distances(obstacle_cloud, distances, fov);
 
@@ -261,7 +282,7 @@ mission2(auto& mi,
   const float turning_vel = args.get<float>("--turning-spd");
   const float initial_forward_vel_x = args.get<float>("--velocity");
   const float ground_detection_threshold = args.get<float>("-g");
-  pcl::ModelCoefficients::Ptr ground_model_coefficients(new pcl::ModelCoefficients);
+  Eigen::Vector4f ground_model_coefficients;
   ArrowStateMachine sm(classifier, args.get<float>("-t"), 5, args.get<float>("-w"), args.get<float>("-d"));
   Vector3f last_target(0.0f, 0.0f, 0.0f);
   spdlog::info("Starting mission2");
