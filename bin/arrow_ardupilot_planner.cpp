@@ -346,7 +346,7 @@ int main(int argc, char* argv[]) {
   args.add_argument("--no-avoid").default_value(false).implicit_value(true).help("Disable obstacle avoidance behaviour");
   args.add_argument("-t", "--threshold").default_value(0.5f).help("Threshold for arrow detections (confidence > threshold => arrow detected)").scan<'g', float>();
   args.add_argument("-w", "--wp-threshold").default_value(2.0f).help("Distance threshold marking a waypoint as reached").scan<'g', float>();
-  args.add_argument("-d", "--waypoint-dist").default_value(5.0f).help("Distance between consecutive waypoints").scan<'g', float>();
+  args.add_argument("-d", "--waypoint-dist").default_value(3.0f).help("Distance between consecutive waypoints").scan<'g', float>();
   args.add_argument("--turning-spd").default_value(0.1f).help("Throttle when turning").scan<'g', float>();
   args.add_argument("-g", "--ground-threshold").default_value(0.025f).help("Ground detection threshold for pointcloud processing").scan<'g', float>();
   args.add_argument("--velocity").default_value(0.1f).help("Crusing speed").scan<'g', float>();
