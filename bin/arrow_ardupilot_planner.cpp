@@ -189,7 +189,7 @@ auto
 locate_obstacles(rs2::points& points,
                  auto& mi,
                  std::span<float, 2> fov,
-                 float distance_threshold) -> asio::awaitable<void>
+                 float distance_threshold, pcl::ModelCoefficients::Ptr coefficients) -> asio::awaitable<void>
 {
     spdlog::debug("Inside locate_obstacles");
     asio::steady_timer timer(co_await asio::this_coro::executor);
@@ -201,21 +201,23 @@ locate_obstacles(rs2::points& points,
     pcl::SACSegmentation<pcl::PointXYZ> seg;
     std::array<uint16_t, 72> distances;
     pcl::ExtractIndices<pcl::PointXYZ> extract;
-    pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
+    // pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
     pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
     // for (;;) {
-    spdlog::debug("Got points");
+    spdlog::debug("Got points: {}", points.size());
     auto pcl_points = points_to_pcl(points);
     voxel_filter.setInputCloud(pcl_points);
     voxel_filter.setLeafSize(0.01f,0.01f,0.01f);
     voxel_filter.filter(*cloud_filtered);
-    
-    seg.setOptimizeCoefficients(true);
-    seg.setModelType(pcl::SACMODEL_PLANE);
-    seg.setMethodType(pcl::SAC_RANSAC);
-    seg.setDistanceThreshold(distance_threshold);
-    seg.setInputCloud(cloud_filtered);
-    seg.segment(*inliers, *coefficients);
+  
+    if (points.size() > 500) {
+      seg.setOptimizeCoefficients(true);
+      seg.setModelType(pcl::SACMODEL_PLANE);
+      seg.setMethodType(pcl::SAC_RANSAC);
+      seg.setDistanceThreshold(distance_threshold);
+      seg.setInputCloud(cloud_filtered);
+      seg.segment(*inliers, *coefficients);
+    }
 
     Eigen::Vector4f ground_coeff(coefficients->values[0], coefficients->values[1], coefficients->values[2], coefficients->values[3]);
     remove_groundplane(ground_coeff, cloud_filtered, obstacle_cloud);
@@ -259,6 +261,7 @@ mission2(auto& mi,
   const float turning_vel = args.get<float>("--turning-spd");
   const float initial_forward_vel_x = args.get<float>("--velocity");
   const float ground_detection_threshold = args.get<float>("-g");
+  pcl::ModelCoefficients::Ptr ground_model_coefficients(new pcl::ModelCoefficients);
   ArrowStateMachine sm(classifier, args.get<float>("-t"), 5, args.get<float>("-w"), args.get<float>("-d"));
   Vector3f last_target(0.0f, 0.0f, 0.0f);
   spdlog::info("Starting mission2");
@@ -271,7 +274,7 @@ mission2(auto& mi,
 
     // TODO: add a constexpr if to disable obstacle avoidance
     if (not args.get<bool>("--no-avoid"))
-    co_await locate_obstacles(points, mi, fov, ground_detection_threshold);
+    co_await locate_obstacles(points, mi, fov, ground_detection_threshold, ground_model_coefficients);
 
     float current_yaw_deg = mi->heading();
     // Initialize the monadic interface for the SM
