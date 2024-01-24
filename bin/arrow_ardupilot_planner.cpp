@@ -207,7 +207,7 @@ locate_obstacles(rs2::points& points,
     spdlog::debug("Got points: {}", points.size());
     auto pcl_points = points_to_pcl(points);
     voxel_filter.setInputCloud(pcl_points);
-    voxel_filter.setLeafSize(0.01f,0.01f,0.01f);
+    voxel_filter.setLeafSize(args.get<float>("--voxel-size"),args.get<float>("--voxel-size"),args.get<float>("--voxel-size"));
     voxel_filter.filter(*cloud_filtered);
 
     bool validity_checks = true;
@@ -225,12 +225,12 @@ locate_obstacles(rs2::points& points,
         std::abs(coefficients->values[1]) > 0.1 ||     // y
         std::abs(coefficients->values[2] - 1.0) > 0.1) // z
     {
-        spdlog::info("Ground plane is significantly off horizontal, not "
+        spdlog::debug("Ground plane is significantly off horizontal, not "
                      "updating until next pointcloud.");
         validity_checks = false;
     }
     if (std::abs(coefficients->values[3]) > 0.05) {
-        spdlog::info("Ground plane has an altitude that exceeds 50mm from the "
+        spdlog::debug("Ground plane has an altitude that exceeds 50mm from the "
                      "base, not updating until next pointcloud.");
         validity_checks = false;
     }
@@ -371,6 +371,7 @@ int main(int argc, char* argv[]) {
   args.add_argument("--turning-spd").default_value(0.1f).help("Throttle when turning").scan<'g', float>();
   args.add_argument("-g", "--ground-threshold").default_value(0.025f).help("Ground detection threshold for pointcloud processing").scan<'g', float>();
   args.add_argument("--velocity").default_value(0.1f).help("Crusing speed").scan<'g', float>();
+  args.add_argument("--voxel-size").default_value(0.05f).help("Voxel filter leaf size").scan<'g', float>();
 
   int log_verbosity = 0;
   args.add_argument("-V", "--verbose")
