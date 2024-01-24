@@ -12,6 +12,7 @@
 #include "arrow_state_machine.hpp"
 #include "yolov8_arrow.hpp"
 #include <asio/detached.hpp>
+#include <asio/serial_port.hpp>
 #include <asio/this_coro.hpp>
 #include <spdlog/spdlog.h>
 #include <spdlog/fmt/fmt.h>
@@ -412,6 +413,7 @@ int main(int argc, char* argv[]) {
   // ap_socket.connect(*tcp::resolver(io_ctx).resolve("0.0.0.0", "5762", tcp::resolver::passive));
   // auto mi = std::make_shared<MavlinkInterface<tcp::socket>>((std::move(ap_socket)));
   asio::serial_port ap_serial(io_ctx, args.get("ardupilot"));
+  ap_serial.set_option(asio::serial_port_base::baud_rate(921600));
   auto mi = std::make_shared<MavlinkInterface<asio::serial_port>>(std::move(ap_serial));
 
 
