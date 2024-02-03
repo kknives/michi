@@ -7,6 +7,7 @@
 #include <spdlog/spdlog.h>
 #include <boost/circular_buffer.hpp>
 
+#include "ardupilot_interface.hpp"
 #include "classification_model.hpp"
 #include "mobilenet_arrow.hpp"
 
@@ -37,13 +38,23 @@ struct ImpureInterface{
   struct InputState {
     std::span<float, 3> xyz;
     float heading_deg;
+    int16_t nav_bearing;
+    int16_t target_bearing;
+    int16_t target_dist;
   } input;
   struct Outputs {
     int delay_sec;
     Vector3f target_xyz_pos_local;
     float yaw;
   } output;
-  ImpureInterface(std::span<float, 3> input_xyz, float yaw_deg) : input{.xyz = input_xyz, .heading_deg = yaw_deg} {}
+  ImpureInterface(std::span<float, 3> input_xyz, NavStatus nav, float yaw_deg)
+    : input{ .xyz = input_xyz,
+             .heading_deg = yaw_deg,
+             .nav_bearing = nav.m_desired_bearing_deg,
+             .target_bearing = nav.m_target_bearing_deg,
+             .target_dist = nav.m_waypoint_dist_m}
+  {
+  }
 };
 class ArrowStateMachine {
   std::vector<Objective> m_objectives;
@@ -110,7 +121,7 @@ class ArrowStateMachine {
     m_current_heading_deg = i.heading_deg;
     spdlog::debug("Got heading {}",m_current_heading_deg);
     if (m_current_obj) {
-      m_current_dist_to_obj.emplace(m_objectives[*m_current_obj].distance_to(m_current_pos));
+      m_current_dist_to_obj.emplace(i.target_dist);
     }
   }
   bool seek(cv::Mat& rgb_image, rs2::depth_frame& depth_image, bool strong_only = false) {

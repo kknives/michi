@@ -276,7 +276,7 @@ mission2(auto& mi,
 
     float current_yaw_deg = mi->heading();
     // Initialize the monadic interface for the SM
-    ImpureInterface sm_monad(mi->local_position(), current_yaw_deg);
+    ImpureInterface sm_monad(mi->local_position(), mi->nav_status(), current_yaw_deg);
     spdlog::info("YAW: {}", current_yaw_deg);
     if (sm.next(sm_monad, image, depth_frame)) {
       co_await mi->set_disarmed(); // disarm

@@ -78,6 +78,11 @@ using tl::make_unexpected;
 using namespace std::chrono;
 const float INVALID = 0.0f;
 
+struct NavStatus {
+  int16_t m_desired_bearing_deg;
+  int16_t m_target_bearing_deg;
+  int16_t m_waypoint_dist_m;
+};
 struct ArdupilotState {
   std::array<float, 3> m_local_xyz;
   std::array<int32_t, 3> m_lat_lon_alt;
@@ -85,6 +90,7 @@ struct ArdupilotState {
   std::array<float, 3> m_rpy;
   std::array<float, 3> m_rpy_vel;
   float m_heading_deg;
+  NavStatus m_nav;
 };
 
 template <typename I>
@@ -146,6 +152,13 @@ class MavlinkInterface
     m_ap_state.m_rpy = {att.roll, att.pitch, att.yaw};
     m_ap_state.m_rpy_vel = {att.rollspeed, att.pitchspeed, att.yawspeed};
   }
+  auto update_navigation_status(const mavlink_message_t* msg) -> void {
+    mavlink_nav_controller_output_t nav;
+    mavlink_msg_nav_controller_output_decode(msg, &nav);
+    m_ap_state.m_nav.m_desired_bearing_deg = nav.nav_bearing;
+    m_ap_state.m_nav.m_target_bearing_deg = nav.target_bearing;
+    m_ap_state.m_nav.m_waypoint_dist_m = nav.wp_dist;
+  }
   auto show_statustext(const mavlink_message_t* msg) -> void {
     mavlink_statustext_t stxt;
     mavlink_msg_statustext_decode(msg, &stxt);
@@ -187,6 +200,10 @@ class MavlinkInterface
         spdlog::trace("Got Global Position cov");
         update_global_position(msg);
         break;
+      case MAVLINK_MSG_ID_NAV_CONTROLLER_OUTPUT:
+        spdlog::info("Got Nav controller output");
+        update_navigation_status(msg);
+        break;
       case MAVLINK_MSG_ID_COMMAND_ACK:
         spdlog::info("Got ack");
         break;
@@ -226,6 +243,9 @@ public:
     , m_start{ steady_clock::now() }
     , m_ap_requests(m_uart.get_executor(), REQUESTS_QUEUE_SIZE)
   {
+    m_ap_state.m_nav = { .m_desired_bearing_deg = 0,
+                         .m_target_bearing_deg = 0,
+                         .m_waypoint_dist_m = 0 };
     // m_uart.set_option(asio::serial_port_base::baud_rate(115200));
   }
   auto loop() -> asio::awaitable<tResult<void>>
@@ -309,6 +329,9 @@ public:
                     error.message());
       co_return make_unexpected(MavlinkErrc::FailedWrite);
     }
+  }
+  auto nav_status() -> NavStatus const {
+    return m_ap_state.m_nav;
   }
   auto local_position() -> std::span<float, 3> const {
     return std::span(m_ap_state.m_local_xyz);
