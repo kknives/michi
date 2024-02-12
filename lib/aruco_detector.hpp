@@ -2,31 +2,19 @@
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/aruco.hpp>
-#include <iostream>
-#include <vector>
-
-struct ArUcoDetectionResult {
-    std::vector<int> ids;
-    std::vector<std::vector<cv::Point2f>> corners;
-    std::vector<cv::Vec3d> rvecs;
-    std::vector<cv::Vec3d> tvecs;
-};
+#include <memory>
+#include "classification_model.hpp"
 
 class Aruco_Detector {
 public:
-    Aruco_Detector(const cv::Mat& cameraMatrix, int dictionaryType,)
-            : cameraMatrix(cameraMatrix), dictionaryType(dictionaryType) {}
+    Aruco_Detector(const cv::Mat& cameraMatrix, int dictionaryType, float markerSize = 0.15)
+        : cameraMatrix(cameraMatrix), dictionaryType(dictionaryType), markerSize(markerSize) {}
 
-    enum Detection {
-        NONE = 0,
-        ARUCO
-    };
-
-    Detection classify(cv::Mat& image, float threshold) {
-        if (detectMarkers(image)) {
-            return Detection::ARUCO;
+    friend ClassificationModel::Detection model_classify(Aruco_Detector &detector, cv::Mat& image, float threshold) {
+        if (detector.detectMarkers(image)) {
+            return ClassificationModel::Detection::ARUCO;
         } else {
-            return Detection::NONE;
+            return ClassificationModel::Detection::NONE;
         }
     }
 
@@ -55,7 +43,7 @@ private:
 
         if (!ids.empty()) {
             std::vector<cv::Vec3d> rvecs, tvecs;
-            cv::aruco::estimatePoseSingleMarkers(corners, 0.15, cameraMatrix, distCoeffs, rvecs, tvecs);
+            cv::aruco::estimatePoseSingleMarkers(corners, markerSize, cameraMatrix, distCoeffs, rvecs, tvecs);
 
             detectionResult.ids = ids;
             detectionResult.corners = corners;
