@@ -6,9 +6,6 @@
 #include "classification_model.hpp"
 
 struct ArucoParams {
-    double markerSize;
-    cv::Mat cameraMatrix;
-    cv::Mat distCoeffs;
     std::vector<int> ids;
     std::vector<std::vector<cv::Point2f>> corners;
     std::vector<cv::Vec3d> rvecs;
