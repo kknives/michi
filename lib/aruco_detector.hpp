@@ -5,13 +5,24 @@
 #include <memory>
 #include "classification_model.hpp"
 
+struct ArucoParams {
+    double markerSize;
+    cv::Mat cameraMatrix;
+    cv::Mat distCoeffs;
+    std::vector<int> ids;
+    std::vector<std::vector<cv::Point2f>> corners;
+    std::vector<cv::Vec3d> rvecs;
+    std::vector<cv::Vec3d> tvecs;
+};
+
 class Aruco_Detector {
 public:
     Aruco_Detector(const cv::Mat& cameraMatrix, int dictionaryType, float markerSize = 0.15)
         : cameraMatrix(cameraMatrix), dictionaryType(dictionaryType), markerSize(markerSize) {}
 
     friend ClassificationModel::Detection model_classify(Aruco_Detector &detector, cv::Mat& image, float threshold) {
-        if (detector.detectMarkers(image)) {
+        ArucoParams params;
+        if (detector.detectMarkers(image, params)) {
             return ClassificationModel::Detection::ARUCO;
         } else {
             return ClassificationModel::Detection::NONE;
@@ -28,7 +39,7 @@ private:
     float markerSize;
     ArUcoDetectionResult detectionResult;
 
-    bool detectMarkers(cv::Mat& image) {
+    bool detectMarkers(cv::Mat& image, ArucoParams& params) {
         cv::Mat distCoeffs = cv::Mat::zeros(5, 1, CV_64F);
         cv::Ptr<cv::aruco::Dictionary> dictionary = cv::aruco::getPredefinedDictionary(dictionaryType);
 
@@ -37,18 +48,10 @@ private:
             return false;
         }
 
-        std::vector<int> ids;
-        std::vector<std::vector<cv::Point2f>> corners;
-        cv::aruco::detectMarkers(image, dictionary, corners, ids, cv::aruco::DetectorParameters::create());
+        cv::aruco::detectMarkers(image, dictionary, params.corners, params.ids, cv::aruco::DetectorParameters::create());
 
-        if (!ids.empty()) {
-            std::vector<cv::Vec3d> rvecs, tvecs;
-            cv::aruco::estimatePoseSingleMarkers(corners, markerSize, cameraMatrix, distCoeffs, rvecs, tvecs);
-
-            detectionResult.ids = ids;
-            detectionResult.corners = corners;
-            detectionResult.rvecs = rvecs;
-            detectionResult.tvecs = tvecs;
+        if (!params.ids.empty()) {
+            cv::aruco::estimatePoseSingleMarkers(params.corners, markerSize, cameraMatrix, distCoeffs, params.rvecs, params.tvecs);
             return true;
         }
 
