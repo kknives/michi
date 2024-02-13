@@ -48,3 +48,4 @@ zig-out/
 --help
 .idea
 cmake-build-debug
+ls
