@@ -13,7 +13,7 @@ struct ArucoParams {
 
     ArucoParams()
             : camera_mat((cv::Mat_<double>(3, 3) << 216.357407, 0, 214.624283,
-            0, 216.357407, 115.447563,2
+            0, 216.357407, 115.447563,
             0, 0, 1)),
               distcoeffs(cv::Mat::zeros(5, 1, CV_64F)),
               dictionary(cv::aruco::getPredefinedDictionary(cv::aruco::DICT_4X4_50)),
@@ -25,12 +25,9 @@ public:
     ArucoDetector(const ArucoParams& arucoParams)
             : m_aruco_params(arucoParams) {}
 
+    // Changed member variables to match ArucoParams
     friend ClassificationModel::Detection model_classify(ArucoDetector &detector, cv::Mat& image, float threshold);
     friend cv::Rect ModelGetBoundingBox(const ArucoDetector& detector);
-
-    const ArUcoDetectionResult& getDetectionResult() const {
-        return m_detection_result;
-    }
 
     cv::Rect model_get_bounding_box() {
         assert(!m_detection_result.ids.empty() && "No markers detected");
