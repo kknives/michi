@@ -45,3 +45,6 @@ compile_commands.json
 
 zig-cache/
 zig-out/
+--help
+.idea
+cmake-build-debug
