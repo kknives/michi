@@ -1,5 +1,3 @@
-// The changes are marked with comments
-
 #pragma once
 
 #include <opencv2/opencv.hpp>
