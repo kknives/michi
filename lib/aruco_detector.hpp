@@ -28,7 +28,7 @@ public:
     friend ClassificationModel::Detection model_classify(ArucoDetector &detector, cv::Mat& image, float threshold);
     friend cv::Rect ModelGetBoundingBox(const ArucoDetector& detector);
 
-    const ArUcoDetectionResult& getDetectionResult() const {
+    const ArUcoDetectionResult& get_detection_result() const {
         return m_detection_result;
     }
 
