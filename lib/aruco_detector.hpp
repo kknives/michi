@@ -3,7 +3,15 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/aruco.hpp>
 #include <memory>
+#include <spdlog/spdlog.h>
 #include "classification_model.hpp"
+
+struct ArUcoDetectionResult {
+    std::vector<int> ids;
+    std::vector<std::vector<cv::Point2f>> corners;
+    std::vector<cv::Vec3d> rvecs;
+    std::vector<cv::Vec3d> tvecs;
+};
 
 struct ArucoParams {
     cv::Mat camera_mat;
@@ -13,7 +21,7 @@ struct ArucoParams {
 
     ArucoParams()
             : camera_mat((cv::Mat_<double>(3, 3) << 216.357407, 0, 214.624283,
-            0, 216.357407, 115.447563,2
+            0, 216.357407, 115.447563,
             0, 0, 1)),
               distcoeffs(cv::Mat::zeros(5, 1, CV_64F)),
               dictionary(cv::aruco::getPredefinedDictionary(cv::aruco::DICT_4X4_50)),
@@ -26,7 +34,6 @@ public:
             : m_aruco_params(arucoParams) {}
 
     friend ClassificationModel::Detection model_classify(ArucoDetector &detector, cv::Mat& image, float threshold);
-    friend cv::Rect ModelGetBoundingBox(const ArucoDetector& detector);
 
     const ArUcoDetectionResult& get_detection_result() const {
         return m_detection_result;
@@ -46,13 +53,13 @@ public:
         return std::make_pair(rvec, tvec);
     }
 
-    bool DetectMarkers(cv::Mat& image) {
+    bool detect_markers(cv::Mat& image) {
         std::vector<int> ids;
         std::vector<std::vector<cv::Point2f>> corners;
         std::vector<cv::Vec3d> rvecs, tvecs;
 
         if (image.empty()) {
-            std::cerr << "Error: Input image is empty." << std::endl;
+            spdlog::error("Error: Input image is empty.");
             return false;
         }
 
@@ -73,7 +80,7 @@ private:
 };
 
 ClassificationModel::Detection model_classify(ArucoDetector &detector, cv::Mat& image, float threshold) {
-    if (detector.DetectMarkers(image)) {
+    if (detector.detect_markers(image)) {
         return ClassificationModel::Detection::ARUCO;
     } else {
         return ClassificationModel::Detection::NONE;
