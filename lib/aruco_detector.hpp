@@ -20,12 +20,13 @@ struct ArucoParams {
     float markersize;
 
     ArucoParams()
-            : camera_mat((cv::Mat_<double>(3, 3) << 216.357407, 0, 214.624283,
-            0, 216.357407, 115.447563,
+            : camera_mat((cv::Mat_<double>(3, 3) << 604.5639, 0, 317.31656,
+            0, 604.5807, 254.18544,
             0, 0, 1)),
               distcoeffs(cv::Mat::zeros(5, 1, CV_64F)),
-              dictionary(cv::aruco::getPredefinedDictionary(cv::aruco::DICT_4X4_50)),
-              markersize(0.15) {}
+              markersize(0.15) {
+        dictionary = cv::makePtr<cv::aruco::Dictionary>(cv::aruco::getPredefinedDictionary(cv::aruco::DICT_4X4_50));
+    }
 };
 
 class ArucoDetector {
