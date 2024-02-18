@@ -4,9 +4,6 @@
 #include <gtest/gtest.h>
 #include "aruco_detector.hpp"
 
-#include <gtest/gtest.h>
-#include "aruco_detector.hpp"
-
 TEST(ArucoDetectorTest, TestGetPose) {
     ArucoParams params;
     ArucoDetector detector(params);
