@@ -8,7 +8,8 @@ class ClassificationModel {
     NONE = 0,
     ARROW_LEFT,
     ARROW_RIGHT,
-    CONE
+    CONE,
+    ARUCO
   };
 
   private:
