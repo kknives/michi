@@ -71,6 +71,11 @@ add_dependencies(arar_planner Michi)
 target_include_directories(arar_planner PRIVATE argparse)
 target_link_libraries(arar_planner PRIVATE Michi -fsanitize=address)
 
+add_executable(aruar_planner bin/aruco_ardupilot_planner.cpp)
+add_dependencies(aruar_planner Michi)
+target_include_directories(aruar_planner PRIVATE argparse)
+target_link_libraries(aruar_planner PRIVATE Michi -fsanitize=address)
+
 option(BUILD_MOBILENET_SCRIPT "Build run_mobilenet_arrow.cpp for running models" OFF)
 if (BUILD_MOBILENET_SCRIPT)
     add_executable(run_mobilenet_arrow bin/run_mobilenet_arrow.cpp)

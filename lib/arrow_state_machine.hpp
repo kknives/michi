@@ -134,7 +134,7 @@ class ArrowStateMachine {
       m_detections.push_back(type_detected);
       int lefts_detected = 0, rights_detected = 0, cones_detected = 0;
       for (int i = 0; i < m_detections.size(); i++) {
-        lefts_detected  += m_detections[i] == ClassificationModel::Detection::ARROW_LEFT;
+        lefts_detected  += m_detections[i] == ClassificationModel::Detection::ARROW_LEFT or m_detections[i] == ClassificationModel::Detection::ARUCO;
         rights_detected += m_detections[i] == ClassificationModel::Detection::ARROW_RIGHT;
         cones_detected  += m_detections[i] == ClassificationModel::Detection::CONE;
       }
