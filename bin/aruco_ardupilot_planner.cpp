@@ -11,6 +11,7 @@
 #include "mobilenet_arrow.hpp"
 #include "arrow_state_machine.hpp"
 #include "yolov8_arrow.hpp"
+#include "aruco_detector.hpp"
 #include <asio/detached.hpp>
 #include <asio/serial_port.hpp>
 #include <asio/this_coro.hpp>
@@ -209,7 +210,7 @@ locate_obstacles(rs2::points& points,
     voxel_filter.setInputCloud(pcl_points);
     voxel_filter.setLeafSize(0.01f,0.01f,0.01f);
     voxel_filter.filter(*cloud_filtered);
-    
+
     seg.setOptimizeCoefficients(true);
     seg.setModelType(pcl::SACMODEL_PLANE);
     seg.setMethodType(pcl::SAC_RANSAC);
@@ -244,7 +245,7 @@ mission2(auto& mi,
   } else if (args.get("--model") == "waseem2") {
     uninit_classifier.emplace(ClassificationModel(MobilenetArrowClassifier::make_waseem2_model(args.get("model_path"))));
   } else {
-    uninit_classifier.emplace(ClassificationModel(Yolov8ArrowClassifier::make_mohnish7_model(args.get("model_path"))));
+    uninit_classifier.emplace(ClassificationModel(ArucoDetector::make_akash5_model(args.get("model_path"))));
   }
   ClassificationModel classifier(std::move(uninit_classifier.value()));
   co_await mi->init();
@@ -304,7 +305,7 @@ mission2(auto& mi,
       last_target = sm_monad.output.target_xyz_pos_local;
       targets++;
       co_await mi->set_target_position_local(target_xyz);
-    } 
+    }
     if (sm_monad.output.yaw != 0) {
       // set target yaw here
       float yaw_radian = (sm_monad.output.yaw* M_PI)/180.0f;
@@ -355,7 +356,7 @@ int main(int argc, char* argv[]) {
   .default_value(false)
   .implicit_value(true)
   .nargs(0);
-  
+
   try {
     args.parse_args(argc, argv);
   }
