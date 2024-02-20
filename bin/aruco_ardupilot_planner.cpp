@@ -70,7 +70,6 @@ calculate_obstacle_distances(tPclPtr pc,
                               noise_lvl,
                               min_range,
                               border);
-  float* goods = rg_img.getRangesArray();
 
   float hfov_deg = (fov[0] * 180.0f) / M_PI;
   int rays = distances.size();
@@ -224,7 +223,6 @@ locate_obstacles(rs2::points& points,
     calculate_obstacle_distances(obstacle_cloud, distances, fov);
 
     float hfov_deg = (fov[0] * 180.0f) / M_PI;
-    float vfov_deg = (fov[1] * 180.0f) / M_PI;
     co_await mi->set_obstacle_distance(
       std::span(distances), hfov_deg / 72.0f, 17.5f, 300.0f, -0.5f * hfov_deg);
   //   timer.expires_after(1s);
