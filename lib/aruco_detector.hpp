@@ -24,20 +24,28 @@ struct ArucoParams {
             0, 604.5807, 254.18544,
             0, 0, 1)),
               distcoeffs(cv::Mat::zeros(5, 1, CV_64F)),
+              dictionary(cv::makePtr<cv::aruco::Dictionary>(cv::aruco::getPredefinedDictionary(cv::aruco::DICT_4X4_50))),
               markersize(0.15) {
-        dictionary = cv::makePtr<cv::aruco::Dictionary>(cv::aruco::getPredefinedDictionary(cv::aruco::DICT_4X4_50));
+        //dictionary = cv::makePtr<cv::aruco::Dictionary>(cv::aruco::getPredefinedDictionary(cv::aruco::DICT_4X4_50));
     }
+
 };
 
 class ArucoDetector {
 public:
-    ArucoDetector(const ArucoParams& arucoParams)
-            : m_aruco_params(arucoParams) {}
+    explicit ArucoDetector(const ArucoParams& arucoParams)
+                : m_aruco_params(arucoParams) {}
+
 
     friend ClassificationModel::Detection model_classify(ArucoDetector &detector, cv::Mat& image, float threshold);
-
+    
     const ArUcoDetectionResult& get_detection_result() const {
         return m_detection_result;
+    }
+
+    static ArucoDetector make_akash5_model(const std::string& s) {
+        ArucoParams params;
+        return ArucoDetector(params);
     }
 
     cv::Rect model_get_bounding_box() {
@@ -46,6 +54,7 @@ public:
         cv::Rect boundingBox = cv::boundingRect(corners);
         return boundingBox;
     }
+
 
     std::pair<cv::Vec3d, cv::Vec3d> get_pose() {
         assert(!m_detection_result.ids.empty() && "No markers detected");
@@ -57,7 +66,6 @@ public:
     bool detect_markers(cv::Mat& image) {
         std::vector<int> ids;
         std::vector<std::vector<cv::Point2f>> corners;
-        std::vector<cv::Vec3d> rvecs, tvecs;
 
         if (image.empty()) {
             spdlog::error("Error: Input image is empty.");
@@ -67,6 +75,8 @@ public:
         cv::aruco::detectMarkers(image, m_aruco_params.dictionary, corners, ids);
 
         if (!ids.empty()) {
+            
+            std::vector<cv::Vec3d> rvecs, tvecs;
             cv::aruco::estimatePoseSingleMarkers(corners, m_aruco_params.markersize, m_aruco_params.camera_mat, m_aruco_params.distcoeffs, rvecs, tvecs);
             m_detection_result = {ids, corners, rvecs, tvecs};
             return true;
