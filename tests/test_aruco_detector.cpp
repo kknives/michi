@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include "aruco_detector.hpp"
+#include "classification_model.hpp"
 
 #include <gtest/gtest.h>
 #include "aruco_detector.hpp"
@@ -36,4 +37,10 @@ TEST(ArucoDetectorTest, TestDetectedId) {
         auto detection_result = detector.get_detection_result();
         EXPECT_EQ(detection_result.ids[0], 42);
     }
+}
+
+TEST(ArucoDetectorTest, test_aruco_detector_classification_model) {
+    auto ad = ClassificationModel(ArucoDetector::make_akash5_model("lib/w_model2.onnx"));
+    cv::Mat image = cv::imread("tests/sample_aruco_42.jpg");
+    EXPECT_EQ(classify(ad, image, 0.3), ClassificationModel::Detection::ARUCO);
 }

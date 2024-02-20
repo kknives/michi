@@ -48,11 +48,12 @@ public:
         return ArucoDetector(params);
     }
 
-    cv::Rect model_get_bounding_box() {
+    friend cv::Rect model_get_bounding_box(const ArucoDetector& detector) {
+        auto m_detection_result = detector.get_detection_result();
         assert(!m_detection_result.ids.empty() && "No markers detected");
         std::vector<cv::Point2f>& corners = m_detection_result.corners[0];
-        cv::Rect boundingBox = cv::boundingRect(corners);
-        return boundingBox;
+        cv::Rect m_bounding_box = cv::boundingRect(corners);
+        return m_bounding_box;
     }
 
 
@@ -75,7 +76,7 @@ public:
         cv::aruco::detectMarkers(image, m_aruco_params.dictionary, corners, ids);
 
         if (!ids.empty()) {
-            
+
             std::vector<cv::Vec3d> rvecs, tvecs;
             cv::aruco::estimatePoseSingleMarkers(corners, m_aruco_params.markersize, m_aruco_params.camera_mat, m_aruco_params.distcoeffs, rvecs, tvecs);
             m_detection_result = {ids, corners, rvecs, tvecs};
