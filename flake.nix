@@ -47,6 +47,22 @@
               runHook postInstall
               '';
             };
+        packages.gz_cmake3 = with pkgs;
+          stdenv.mkDerivation {
+            name = "gz_msgs10";
+            src = fetchFromGitHub {
+              owner = "gazebosim";
+              repo = "gz-cmake";
+              rev = "e21c86482396ba4a4c7c5753ac8fcf5ae8c416a9";
+              sha256 = "sha256-HPm/LKc7YTChujxJ103QGCGaCsK+0HPTuw7cWZlMigs=";
+            };
+            nativeBuildInputs = [cmake];
+            prePatch = ''
+              substituteInPlace config/gz-cmake.pc.in \
+                --replace '$'{prefix}/@CMAKE_INSTALL_LIBDIR@ @CMAKE_INSTALL_FULL_LIBDIR@ \
+                --replace '$'{prefix}/@CMAKE_INSTALL_INCLUDEDIR@ @CMAKE_INSTALL_FULL_INCLUDEDIR@
+                '';
+          };
         packages.michi = with pkgs;
           stdenv.mkDerivation {
             name = "michi";
