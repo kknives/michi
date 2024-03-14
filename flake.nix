@@ -75,6 +75,31 @@
                 description = "gz-cmake3";
               };
           };
+          packages.gz_utils = with pkgs;
+          stdenv.mkDerivation {
+            name = "gz_utils";
+            src = fetchFromGitHub {
+              owner = "gazebosim";
+              repo = "gz-utils";
+              rev = "8f17f54c48ac21382f9f13776e66906046cc3d94";
+              sha256 = "sha256-osY+q+H7F05gcLrpyMGeLsddh2nevG4lZsFeyeZWdaY=";
+            };
+            nativeBuildInputs = [cmake];
+            buildInputs = [packages.gz_cmake];
+            configurePhase = ''
+                mkdir build && cd build
+                cmake .. -DCMAKE_INSTALL_PREFIX=$out -DBUILD_TESTING=OFF
+              '';
+
+              installPhase = ''
+              runHook preInstall
+                cmake --install .
+              runHook postInstall
+              '';
+              meta = {
+                description = "gz-utils2";
+              };
+          };
                 make install
               '';
               meta = {
