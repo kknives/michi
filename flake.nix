@@ -100,6 +100,24 @@
                 description = "gz-utils2";
               };
           };
+        packages.gz_math = with pkgs;
+          stdenv.mkDerivation {
+            name = "gz_math";
+            src = fetchFromGitHub {
+              owner = "gazebosim";
+              repo = "gz-math";
+              rev = "39e48c1388e30a1eac101bc89d34937a394d7d95";
+              sha256 = "sha256-Gj69j3PH4AlSMvzd3OjPF5wmQ0PfDKDtSH3CIgdFxBg=";
+            };
+            nativeBuildInputs = [cmake pkgconfig];
+            buildInputs = [eigen packages.gz_cmake packages.gz_utils];
+            configurePhase = ''
+                mkdir build && cd build
+                cmake .. -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_INSTALL_PREFIX=$out \
+                -DBUILD_TESTING=OFF
+              '';
+
+              installPhase = ''
                 make install
               '';
               meta = {
