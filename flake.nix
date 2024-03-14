@@ -47,9 +47,9 @@
               runHook postInstall
               '';
             };
-        packages.gz_cmake3 = with pkgs;
+        packages.gz_cmake = with pkgs;
           stdenv.mkDerivation {
-            name = "gz_msgs10";
+            name = "gz_cmake";
             src = fetchFromGitHub {
               owner = "gazebosim";
               repo = "gz-cmake";
