@@ -62,6 +62,24 @@
                 --replace '$'{prefix}/@CMAKE_INSTALL_LIBDIR@ @CMAKE_INSTALL_FULL_LIBDIR@ \
                 --replace '$'{prefix}/@CMAKE_INSTALL_INCLUDEDIR@ @CMAKE_INSTALL_FULL_INCLUDEDIR@
                 '';
+            configurePhase = ''
+                mkdir build && cd build
+                cmake .. -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_INSTALL_PREFIX=$out
+              '';
+
+              installPhase = ''
+                make install
+              '';
+
+              meta = {
+                description = "gz-cmake3";
+              };
+          };
+                make install
+              '';
+              meta = {
+                description = "gz-math7";
+              };
           };
         packages.michi = with pkgs;
           stdenv.mkDerivation {
