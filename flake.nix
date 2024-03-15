@@ -148,6 +148,30 @@
                 description = "gz-msgs10";
               };
           };
+        packages.gz_transport = with pkgs;
+          stdenv.mkDerivation {
+            name = "gz_transport";
+            src = fetchFromGitHub {
+              owner = "gazebosim";
+              repo = "gz-transport";
+              rev = "cfb80d25904920fe86ae8b1ca50b8fe46788d00f";
+              sha256 = "sha256-+jEkBeXujnChYemWt+XwCE8CqLpMpnc7nP4vl8C3kOQ=";
+            };
+            nativeBuildInputs = [cmake pkgconfig];
+            buildInputs = [
+              protobuf
+              libuuid.dev
+              zeromq
+              tinyxml-2
+              python3
+              sqlite
+              cppzmq
+              packages.gz_msgs
+              packages.gz_math
+              packages.gz_cmake
+              packages.gz_utils
+            ];
+          };
         packages.michi = with pkgs;
           stdenv.mkDerivation {
             name = "michi";
