@@ -53,8 +53,8 @@
             src = fetchFromGitHub {
               owner = "gazebosim";
               repo = "gz-cmake";
-              rev = "e21c86482396ba4a4c7c5753ac8fcf5ae8c416a9";
-              sha256 = "sha256-HPm/LKc7YTChujxJ103QGCGaCsK+0HPTuw7cWZlMigs=";
+              rev = "459ea347de71d5a9cd0ef2cf13fe14e6421ecb6e";
+              sha256 = "sha256-cmEdtGQ2h3eelRbyr9MLCrkI/phoqaCSA7wv2fW+ylo=";
             };
             nativeBuildInputs = [cmake];
             prePatch = ''
