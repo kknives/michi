@@ -124,6 +124,30 @@
                 description = "gz-math7";
               };
           };
+        packages.gz_msgs = with pkgs;
+          stdenv.mkDerivation {
+            name = "gz_msgs";
+            src = fetchFromGitHub {
+              owner = "gazebosim";
+              repo = "gz-msgs";
+              rev = "0472ba0bb5fe39d8a14499155c68746109d9acf7";
+              sha256 = "sha256-wRbvGJAjwUD4YMlvgP70DytKGrPEhhxtIUcaLPkZ68I=";
+            };
+            nativeBuildInputs = [cmake pkgconfig];
+            buildInputs = [protobuf packages.gz_math packages.gz_cmake packages.gz_utils python3 tinyxml-2];
+            configurePhase = ''
+                mkdir build && cd build
+                cmake .. -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_INSTALL_PREFIX=$out \
+                -DBUILD_TESTING=OFF
+              '';
+
+              installPhase = ''
+                make install
+              '';
+              meta = {
+                description = "gz-msgs10";
+              };
+          };
         packages.michi = with pkgs;
           stdenv.mkDerivation {
             name = "michi";
