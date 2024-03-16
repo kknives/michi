@@ -171,6 +171,9 @@
               packages.gz_cmake
               packages.gz_utils
             ];
+              meta = {
+                description = "gz-transport13";
+              };
           };
         packages.michi = with pkgs;
           stdenv.mkDerivation {
@@ -191,6 +194,17 @@
               onnxruntime.dev
               packages.mavlink_c
               argparse
+              protobuf
+              libuuid.dev
+              zeromq
+              cppzmq
+              tinyxml-2
+              libsodium
+              packages.gz_transport
+              packages.gz_cmake
+              packages.gz_utils
+              packages.gz_math
+              packages.gz_msgs
             ];
             configurePhase = ''
               cmake -S . -B build
