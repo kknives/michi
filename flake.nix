@@ -158,7 +158,7 @@
               sha256 = "sha256-+jEkBeXujnChYemWt+XwCE8CqLpMpnc7nP4vl8C3kOQ=";
             };
             nativeBuildInputs = [cmake pkgconfig];
-            buildInputs = [
+            propagatedBuildInputs = [
               protobuf
               libuuid.dev
               zeromq
@@ -166,6 +166,7 @@
               python3
               sqlite
               cppzmq
+              libsodium
               packages.gz_msgs
               packages.gz_math
               packages.gz_cmake
@@ -194,16 +195,7 @@
               onnxruntime.dev
               packages.mavlink_c
               argparse
-              protobuf
-              libuuid.dev
-              zeromq
-              cppzmq
-              tinyxml-2
-              libsodium
               packages.gz_transport
-              packages.gz_cmake
-              packages.gz_utils
-              packages.gz_math
               packages.gz_msgs
             ];
             configurePhase = ''
