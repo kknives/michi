@@ -58,6 +58,18 @@ public:
   // time-step
   const float m_DT = 0.1;
 
+  MatrixXf control_input(float imu_vel, float odom_vel, float yaw_vel)
+  {
+     Matrix<float, 2, 1> u;
+     float vel;
+
+     vel = complementary(imu_vel, odom_vel);
+
+     u << vel, yaw_vel;
+
+     return u;
+  }
+
   std::tuple<MatrixXf, MatrixXf> observation(MatrixXf xTrue, MatrixXf u)
   {
     xTrue = state_model(xTrue, u);
