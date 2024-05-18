@@ -1,16 +1,16 @@
 #include <Eigen/Dense>
 #include <chrono>
+#include <math.h>
 #include <tuple>
 #include <stdlib.h>
 
 using Eigen::Matrix;
 using Eigen::MatrixXf;
 const float DEG_TO_RAD = 0.01745329251;
-
+const float DT = 0.01;
 class EKF
 {
-  // time-step
-  const float m_DT = 0.1;
+
 public:
   // Covariance Matrix
   Matrix<float, 4, 4> m_predicted_noise_cov;
@@ -24,11 +24,11 @@ public:
 
   // estimated state vector
   Matrix<float, 4, 1> m_xEst;
+
   // True state
   Matrix<float, 4, 1> m_xTrue;
   Matrix<float, 4, 4> m_PEst;
-
-
+  
   EKF() : m_predicted_noise_cov { {0.1,  0.0,      0.0,         0.0},
                                   {0.0,  0.1,      0.0,         0.0},
                                   {0.0,  0.0, (1 * DEG_TO_RAD), 0.0},
@@ -42,36 +42,44 @@ public:
                     {0, 1, 0, 0}},
               m_xEst(MatrixXf::Zero(4,1)),
               m_xTrue(MatrixXf::Zero(4,1)),
-              m_PEst(MatrixXf::Identity(4,4))
+              m_PEst(MatrixXf::Identity(4,4)),
   {
-    // Covariance Matrix
-    // m_predicted_noise_cov << 0.1, 0.0, 0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.0, (1 * deg_to_rad),
-    //   0.0, 0.0, 0.0, 0.0, 1.0;
-
-    // m_measurement_noise_cov << 0.1, 0, 0, 0.1;
-
-    // // input noise
-    // m_ip_noise << 1.0, 0, 0, (30 * deg_to_rad);
-
-    // // measurement matrix
-    // m_H << 1, 0, 0, 0, 0, 1, 0, 0;
-
-    // // acceleration
-    // m_accel_net = 0.0;
   }
 
   MatrixXf control_input(Eigen::Vector3f linear_accel,Eigen::Vector3f angular_vel,Eigen::Vector3f position)
   {
      Matrix<float, 2, 1> u;
-     float vel = 0.0, imu_vel = 0.0, odom_vel = 0.0, yaw_vel = 0.0; 
+     float vel, imu_vel = 0.0, vel_x, vel_y, odom_vel = 0.0, yaw_vel = 0.0, dS, current_pos, prev_pos; 
      
-     imu_vel = linear_accel.norm()*m_DT;
-     odom_vel = position.norm()/m_DT;
+     current_pos = position.norm();
+
+     //change in distance 
+     dS = current_pos - prev_pos;
+
+     // calculating odometry velocity 
+     odom_vel = dS/DT;
+
+     // calculating imu velocity 
+     vel_x = vel_x + linear_accel(0)*DT;
+
+     vel_y = vel_y + linear_accel(1)*DT;
+
+     imu_vel = sqrt(pow(vel_x,2) + pow(vel_y,2));
+     
+     // calc imu velocity 
+     if(odom_vel < 0)
+     imu_vel = -1 * imu_vel;
+     else 
+     imu_vel = imu_vel;	
+
+     // calc yaw velocity 
      yaw_vel = angular_vel(2);
 
      vel = complementary(imu_vel, odom_vel);
 
      u << vel, yaw_vel;
+
+     prev_pos = current_pos;
 
      return u;
   }
@@ -94,9 +102,9 @@ public:
                   			   {0, 0, 0, 0}};
 
     Matrix<float, 4, 2> B;
-        B << (m_DT*cos(x.coeff(2,0))), 0,
-             (m_DT*sin(x.coeff(2,0))), 0,
-    			      0, m_DT,
+        B << (DT*cos(x(2))), 0,
+             (DT*sin(x(2))), 0,
+    			      0, DT,
     		              1, 0;
     x = (A * x) + (B * u);
 
@@ -110,8 +118,8 @@ public:
     float v = u.coeff(0, 0);
 
     Matrix<float, 4, 4> jF;
-    jF << 1.0, 0.0, (-m_DT * v * sin(yaw)), (m_DT * cos(yaw)), 0.0, 1.0,
-      (m_DT * v * cos(yaw)), (m_DT * sin(yaw)), 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0,
+    jF << 1.0, 0.0, (-DT * v * sin(yaw)), (DT * cos(yaw)), 0.0, 1.0,
+      (DT * v * cos(yaw)), (DT * sin(yaw)), 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0,
       1.0;
 
     return jF;
@@ -168,7 +176,7 @@ public:
     float alpha = 0.4;
 
     // complementary velocity
-    float compl_vel = (alpha * IMU_vel) + (1 - alpha) * (compl_vel + ODOM_vel);
+    float compl_vel = (alpha * IMU_vel) + (1 - alpha) * (ODOM_vel);
 
     return compl_vel;
   }
