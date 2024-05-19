@@ -20,6 +20,7 @@
 #include "realsense_generator.hpp"
 #include "ekf.hpp"
 
+using Eigen::Matrix
 using fmt::print;
 using tPointcloud = pcl::PointCloud<pcl::PointXYZ>;
 using namespace std::literals::chrono_literals;
