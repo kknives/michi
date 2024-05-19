@@ -41,7 +41,7 @@ public:
         m_ip_noise{{1.0, 0.0}, {0.0, (30 * DEG_TO_RAD)}}, m_H{{1, 0, 0, 0},
                                                               {0, 1, 0, 0}},
         m_xEst(MatrixXf::Zero(4, 1)), m_xTrue(MatrixXf::Zero(4, 1)),
-        m_PEst(MatrixXf::Identity(4, 4)), {}
+        m_PEst(MatrixXf::Identity(4, 4)) {}
 
   MatrixXf control_input(Eigen::Vector3f linear_accel,
                          Eigen::Vector3f angular_vel,
